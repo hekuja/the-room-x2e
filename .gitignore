@@ -1,3 +1,6 @@
+# Compiled thingml files
+**/thingml-gen
+
 # Compiled class file
 *.class
 
