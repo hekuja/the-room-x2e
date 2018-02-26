@@ -300,6 +300,7 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	required port provide_val {sends WindowOpened, WindowShut}
 	required port show_val {sends WindowOpened, WindowShut}
 	provided port require_val {receives add_magneticSensor}
+	provided port get_values {receives WindowOpened, WindowShut}
 	
 	provided port initial {receives initialize}
 	
@@ -340,6 +341,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 	required port provide_val {sends DoorOpened, DoorShut,DoorLocked}
 	required port show_val {sends DoorOpened, DoorShut,DoorLocked}
 	provided port require_val {receives add_doorLockSensor}
+	provided port get_values {receives DoorOpened, DoorShut,DoorLocked}
 	
 	provided port initial {receives initialize}
 	
@@ -376,14 +378,22 @@ thing OnOffSim includes OnOffMsg
 
 thing WindowSim includes OpenedShutMsg 
 @mock "true"
-{	provided port show_openshut {
+{	
+	required port give_values {
+		sends WindowOpened, WindowShut
+	}
+	provided port show_openshut {
 		receives WindowOpened, WindowShut
 	}
 }
 
 thing DoorLockSim includes OpenedShutLockedMsg 
 @mock "true"
-{	provided port show_openshutlocked {
+{	
+	required port give_values {
+		sends DoorOpened, DoorShut, DoorLocked
+	}
+	provided port show_openshutlocked {
 		receives DoorOpened, DoorShut, DoorLocked
 	}
 }

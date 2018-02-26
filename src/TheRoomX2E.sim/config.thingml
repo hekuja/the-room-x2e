@@ -51,4 +51,6 @@ configuration CPS {
 	
 	// SIMULATION
 	connector tg.give_values => T1.get_values
+	connector window.give_values => mg1.get_values
+	connector door.give_values => dl.get_values
 }
