@@ -10,20 +10,32 @@ configuration CPS {
 	instance pim:PIM
 	instance myself:Human
 	instance timer : TimerJava
+	instance mg1:MagneticSensorSet
+	instance dl:DoorLock
 	
 	// SIMULATION
 	instance tg:TempSim
 	instance onoffobs:OnOffSim
 	instance gdg:GadgetSim
+	instance window:WindowSim
+	instance door:DoorLockSim
 	
 	// PSM
 	connector tlstick.to_T1 => T1.initial
 	connector tlstick.to_gdg => gdg.show_gadgets
 	connector tlstick.to_onoff1 => onoff1.initial
+	connector tlstick.to_mg1 => mg1.initial
+	connector tlstick.to_dl => dl.initial
 	
 	connector T1.provide_val => pim.get_sensor
 	connector T1.timer => timer.timer
 	connector T1.show_values => tg.show_values
+	
+	connector mg1.provide_val => pim.get_mgSensor
+	connector mg1.show_val => window.show_openshut
+	
+	connector dl.provide_val => pim.get_doorLock
+	connector dl.show_val => door.show_openshutlocked
 	
 	connector onoff1.show_val => onoffobs.show_onoff
 	
@@ -33,6 +45,8 @@ configuration CPS {
 	// PIM outwards 
 	connector pim.request_sensor => T1.require_val
 	connector pim.request_actuator => onoff1.require_val
+	connector pim.request_mgSensor => mg1.require_val
+	connector pim.request_doorLock => dl.require_val
 	connector pim.human_output => myself.get_values
 	
 	// SIMULATION

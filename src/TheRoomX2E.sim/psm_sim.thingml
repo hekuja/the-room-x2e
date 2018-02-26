@@ -297,17 +297,56 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 
 
 thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
+	required port provide_val {sends WindowOpened, WindowShut}
+	required port show_val {sends WindowOpened, WindowShut}
+	provided port require_val {receives add_magneticSensor}
+	
 	provided port initial {receives initialize}
-	required port show_val {sends Opened, Shut}
 	
 	property ts:Tellstick // kick-down 
+	
+	property magneticSensors:Integer[25] // Identifiers of the mg sensors in the set
+	property magneticSensortext:String[25] // corresponding explanatory text 
+	property magneticSensorval:Double[25] 
+	property found:Boolean 
+	
+	property id_mgs:Long
+	property last_mgSensor:Integer = 0 
+	
+	statechart behaviorMagneticSensorSet init Init{
+		state Init {
+			transition -> Idle
+			event initial: initial?initialize
+			action do
+				ts = initial.ts
+			end
+		}
+		
+		state Idle {
+			transition -> Idle
+			event addmgs:require_val?add_magneticSensor
+			action do				
+				id_mgs=addmgs.mgid
+				magneticSensors[last_mgSensor]=id_mgs
+				magneticSensortext[last_mgSensor]=addmgs.txt
+				//magneticSensors[last_mgSensor]= 0 // just a default status
+				last_mgSensor = last_mgSensor+1
+			end
+		}
+	}
 }
 
 thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
+	required port provide_val {sends DoorOpened, DoorShut,DoorLocked}
+	required port show_val {sends DoorOpened, DoorShut,DoorLocked}
+	provided port require_val {receives add_doorLockSensor}
+	
 	provided port initial {receives initialize}
-	required port show_val {sends Opened, Shut, Locked}
 	
 	property ts:Tellstick // kick-down 
+	
+	property doorLocks:Integer[1] // Identifiers of the door lock sensors in the set
+	property doorLocktext:String[1] // corresponding explanatory text 
 }
 
 //SIMULATION
@@ -338,13 +377,13 @@ thing OnOffSim includes OnOffMsg
 thing WindowSim includes OpenedShutMsg 
 @mock "true"
 {	provided port show_openshut {
-		receives Opened, Shut
+		receives WindowOpened, WindowShut
 	}
 }
 
 thing DoorLockSim includes OpenedShutLockedMsg 
 @mock "true"
 {	provided port show_openshutlocked {
-		receives Opened, Shut, Locked
+		receives DoorOpened, DoorShut, DoorLocked
 	}
 }

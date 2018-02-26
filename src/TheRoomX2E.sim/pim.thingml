@@ -13,18 +13,35 @@ import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
 import "timer.thingml"
 
-thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg {
+thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShutLockedMsg, MagneticSensorGeneral {
 	provided port get_sensor {
 		receives temperature
 	}
 	required port request_sensor {
 		sends add_thermometer, set_polling_interval
 	}
+	
+	provided port get_mgSensor {
+		receives WindowOpened, WindowShut
+	}
+	
+	required port request_mgSensor{
+		sends add_magneticSensor
+	}
+	
+	provided port get_doorLock {
+		receives DoorOpened,DoorShut,DoorLocked
+	}
+	
+	required port request_doorLock{
+		sends add_doorLockSensor
+	}
+	
 	required port request_actuator{
 		sends add_device, SwitchOn, SwitchOff
 	}
 	provided port human_input {
-		receives add_thermometer, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval
+		receives add_thermometer,add_doorLockSensor,add_magneticSensor, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval
 	}
 	required port human_output {
 		sends temperature, prompt
