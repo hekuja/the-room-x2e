@@ -38,6 +38,14 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	required port to_onoff1 {
 		sends initialize
 	}
+	
+	required port to_dl {
+		sends initialize
+	}
+	
+	required port to_mg1 {
+		sends initialize
+	}
 
 	required port to_gdg {
 		sends sensorinfo, deviceinfo
@@ -101,6 +109,8 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 
 		to_T1!initialize(ts)
 		to_onoff1!initialize(ts)
+		to_dl!initialize(ts)
+		to_mg1!initialize(ts)
 		
 		observe_sensors()
 		observe_devices()
@@ -285,6 +295,21 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 	}
 }
 
+
+thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
+	provided port initial {receives initialize}
+	required port show_val {sends Opened, Shut}
+	
+	property ts:Tellstick // kick-down 
+}
+
+thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
+	provided port initial {receives initialize}
+	required port show_val {sends Opened, Shut, Locked}
+	
+	property ts:Tellstick // kick-down 
+}
+
 //SIMULATION
 thing TempSim includes TemperatureMsg 
 @mock "true"
@@ -310,3 +335,16 @@ thing OnOffSim includes OnOffMsg
 	}
 }
 
+thing WindowSim includes OpenedShutMsg 
+@mock "true"
+{	provided port show_openshut {
+		receives Opened, Shut
+	}
+}
+
+thing DoorLockSim includes OpenedShutLockedMsg 
+@mock "true"
+{	provided port show_openshutlocked {
+		receives Opened, Shut, Locked
+	}
+}

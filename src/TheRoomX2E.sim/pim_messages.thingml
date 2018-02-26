@@ -29,3 +29,18 @@ thing fragment OnOffMsg includes DeviceGeneral{
 	message SwitchOff(did:Integer);
 }
 
+thing fragment MagneticSensorGeneral{
+	message add_magneticSensor(mgid:Integer,txt:String);
+	message add_doorLockSensor(dlid:Integer,txt:String)
+}
+
+thing fragment OpenedShutMsg includes MagneticSensorGeneral{
+	message Opened(mgid:Integer);
+	message Shut(mgid:Integer);
+}
+
+thing fragment OpenedShutLockedMsg includes MagneticSensorGeneral{
+	message Opened(dlid:Integer);
+	message Shut(dlid:Integer);
+	message Locked(dlid:Integer);
+}
