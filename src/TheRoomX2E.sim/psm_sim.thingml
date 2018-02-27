@@ -308,11 +308,14 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	
 	property magneticSensors:Integer[25] // Identifiers of the mg sensors in the set
 	property magneticSensortext:String[25] // corresponding explanatory text 
-	property magneticSensorval:Double[25] 
+	property magneticSensorval:Integer[25] 
 	property found:Boolean 
+	property i:Integer // runner index in list
 	
 	property id_mgs:Long
 	property last_mgSensor:Integer = 0 
+	property windowShut:Integer =0
+	property windowOpened:Integer =1
 	
 	statechart behaviorMagneticSensorSet init Init{
 		state Init {
@@ -333,6 +336,44 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 				//magneticSensors[last_mgSensor]= 0 // just a default status
 				last_mgSensor = last_mgSensor+1
 			end
+			
+			transition -> Idle
+			event open_window:get_values?WindowOpened
+			action do
+				id_mgs=open_window.mgid
+				
+				i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (id_mgs==magneticSensors[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					magneticSensorval[i-1]=windowOpened
+					show_val!WindowOpened(id_mgs)
+				end
+			end
+			
+			transition -> Idle
+			event close_window:get_values?WindowOpened
+			action do
+				id_mgs=close_window.mgid
+				
+				i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (id_mgs==magneticSensors[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					magneticSensorval[i-1]=windowShut
+					show_val!WindowShut(id_mgs)
+				end
+			end
 		}
 	}
 }
@@ -349,6 +390,96 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 	
 	property doorLocks:Integer[1] // Identifiers of the door lock sensors in the set
 	property doorLocktext:String[1] // corresponding explanatory text 
+	
+	property doorLockval:Integer[25] 
+	property found:Boolean 
+	property i:Integer // runner index in list
+	
+	property id_dl:Long
+	property last_dlSensor:Integer = 0 
+	property doorOpened:Integer = 0
+	property doorShut:Integer = 1
+	property doorLocked:Integer = 2
+	
+	statechart behaviorDoorLock init Init{
+		state Init {
+			transition -> Idle
+			event initial: initial?initialize
+			action do
+				ts = initial.ts
+			end
+		}
+		
+		state Idle {
+			transition -> Idle
+			event addLock:require_val?add_doorLockSensor
+			action do				
+				id_dl=addLock.dlid
+				doorLocks[last_dlSensor]=id_dl
+				doorLocktext[last_dlSensor]=addLock.txt
+				//magneticSensors[last_mgSensor]= 0 // just a default status
+				last_dlSensor = last_dlSensor+1
+			end
+			
+			transition -> Idle
+			event open_door:get_values?DoorOpened
+			action do
+				id_dl=open_door.dlid
+				
+				i=0
+				found = false
+				while (i<last_dlSensor and (not found)) do
+					if (id_dl==doorLocks[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					doorLockval[i-1]=doorOpened
+					show_val!DoorOpened(id_dl)
+				end
+			end
+			
+			transition -> Idle
+			event shut_door:get_values?DoorShut
+			action do
+				id_dl=shut_door.dlid
+				
+				i=0
+				found = false
+				while (i<last_dlSensor and (not found)) do
+					if (id_dl==doorLocks[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					doorLockval[i-1]=doorShut
+					show_val!DoorShut(id_dl)
+				end
+			end
+			
+			transition -> Idle
+			event lock_door:get_values?DoorShut
+			action do
+				id_dl=lock_door.dlid
+				
+				i=0
+				found = false
+				while (i<last_dlSensor and (not found)) do
+					if (id_dl==doorLocks[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					doorLockval[i-1]=doorLocked
+					show_val!DoorLocked(id_dl)
+				end
+			end
+		}
+	}
+	
 }
 
 //SIMULATION
