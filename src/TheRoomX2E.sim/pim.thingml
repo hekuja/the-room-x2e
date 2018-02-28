@@ -388,6 +388,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				end
 				// temperature and set_temperature handled on Build level
 			}
+			
 			state AddDevice2 {
 				transition -> AddDevice3
 				event adddev2:human_input?add_device
@@ -434,6 +435,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				end
 				// temperature and set_temperature handled on Build level
 			}
+			
 			state AddDevice3 {
 				transition -> SetThermostat
 				event adddev3:human_input?add_device
