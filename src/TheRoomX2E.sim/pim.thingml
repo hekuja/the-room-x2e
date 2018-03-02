@@ -15,7 +15,7 @@ import "timer.thingml"
 
 thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShutLockedMsg, MagneticSensorGeneral {
 	provided port get_sensor {
-		receives temperature
+		receives temperature, av_temprature
 	}
 	required port request_sensor {
 		sends add_thermometer, set_polling_interval
@@ -52,9 +52,10 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property switch_id:Integer // the single on-off switch identifier
 	property doorLock_id:Integer
 	property mg_sensor_id:Integer
-	// for book keeping purposes
-	
-	
+	property thermometers:Integer[25] 
+	property last_thermo:Integer = 0 // number of thermometers in the set
+	property i:Integer = 0 
+	property found:Boolean 
 	statechart PIM_behavior init Build {
 		composite state Build init AddThermo keeps history {
 			
@@ -65,6 +66,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					thermo_id=addt.id
 					request_sensor!add_thermometer(thermo_id,addt.txt)
+					thermometers[last_thermo]=thermo_id
+					last_thermo = last_thermo+1
 					human_output!prompt("Please add second thermometer") // SIMULATION: prompting on console for the user to react properly
 				end
 				
@@ -113,6 +116,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					thermo_id=addt.id
 					request_sensor!add_thermometer(thermo_id,addt.txt)
+					thermometers[last_thermo]=thermo_id
+					last_thermo = last_thermo+1
 					human_output!prompt("Please add the third thermometer") 
 				end
 				transition -> AddThermo2 // Cover other messages
@@ -160,6 +165,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					thermo_id=addt.id
 					request_sensor!add_thermometer(thermo_id,addt.txt)
+					thermometers[last_thermo]=thermo_id
+					last_thermo = last_thermo+1
 					human_output!prompt("Please add one door lock sensor") 
 				end
 				transition -> AddThermo3 // Cover other messages
@@ -296,12 +303,12 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			}
 			
 			state AddMagneticSensor2 {
-				transition -> AddDevice
+				transition -> AddMagneticSensor3
 				event addmgs2:human_input?add_magneticSensor
 				action do
 					mg_sensor_id=addmgs2.mgid
 					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs2.txt)
-					human_output!prompt("Please add one switch device") 
+					human_output!prompt("Please add the third magnetic sensor") 
 				end
 				transition -> AddMagneticSensor2 // Cover other messages
 				event human_input?add_doorLockSensor
@@ -337,6 +344,53 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event human_input?set_polling_interval
 				action do
 					human_output!prompt("Please add second magnetic sensor")
+				end
+				
+				// temperature is handled on Build level
+			}
+			
+			state AddMagneticSensor3 {
+				transition -> AddDevice
+				event addmgs2:human_input?add_magneticSensor
+				action do
+					mg_sensor_id=addmgs2.mgid
+					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs2.txt)
+					human_output!prompt("Please add switch devices") 
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?add_doorLockSensor
+				action do
+					human_output!prompt("Door lock sensor already added, please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?add_thermometer
+				action do
+					human_output!prompt("Thermometers already added, please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?add_device
+				action do
+					human_output!prompt("Please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?SwitchOn
+				action do
+					human_output!prompt("Please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?SwitchOff
+				action do
+					human_output!prompt("Please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?set_temperature
+				action do
+					human_output!prompt("Please add third magnetic sensor")
+				end
+				transition -> AddMagneticSensor3 // Cover other messages
+				event human_input?set_polling_interval
+				action do
+					human_output!prompt("Please add third magnetic sensor")
 				end
 				
 				// temperature is handled on Build level
@@ -541,56 +595,178 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 		
 		
 			composite state Thermostat init TemprDecide {  // notice that we are not keeping history, we do not know whether to turn on or off
-				state TemprDecide {
-					transition -> TemprDecrease
-					event temp2:get_sensor?temperature
-					guard temp2.t>=tmrature-1  // We choose switch OFF as much as we can here
+				
+				state DoorShut{
+					transition -> TemprDecide
+					event doorLock:get_doorLock?DoorShut
 					action do
 						request_actuator!SwitchOff(switch_id)
 					end
-					
-					transition -> TemprIncrease
-					event temp2:get_sensor?temperature
-					guard temp2.t<tmrature-1
+				}
+				
+				state DoorLocked{
+					transition -> TemprDecide
+					event doorLock:get_doorLock?DoorLocked
 					action do
-						request_actuator!SwitchOn(switch_id)
+						request_actuator!SwitchOff(switch_id)
 					end
 				}
 				
-				state TemprIncrease{ // Invariant: Switch is ON and temperature should increase
-				
+				state TemprDecide {
+					transition -> TemprDecrease
+					event temp2:get_sensor?av_temprature
+					guard temp2.t >=tmrature-1  // We choose switch OFF as much as we can here
+					action do
+						// switch off all devices
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOff(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprDecide -> TemprDecrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprIncrease
+					event temp2:get_sensor?av_temprature
+					guard temp2.t<tmrature-1
+					action do
+						// switch on all devices
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOn(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprDecide -> TemprIncrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
 					transition -> TemprIncrease 
 					event temp:get_sensor?temperature
-					guard temp.t<=tmrature+1 // it should keep increasing until well above the desired temperature
+					guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
 					action do
 						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
+						request_actuator!SwitchOn(temp.id)
+						print("---TemprDecide -> TemprIncrease--- \n"+"T" + temp.id + ": "+ temp.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
 					guard temp2.t>tmrature+1 
 					action do
-						request_actuator!SwitchOff(switch_id)
+						request_actuator!SwitchOff(temp2.id)
+						print("---TemprDecide -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch off \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+				}
+				
+				state TemprIncrease{ // Invariant: Switch is ON and temperature should increase
+				
+					transition -> TemprIncrease 
+					event temp:get_sensor?av_temprature
+					guard temp.t<=tmrature+1 // it should keep increasing until well above the desired temperature
+					action do
+						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
+						//request_actuator!SwitchOn(temp.id)
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOn(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprIncrease -> TemprIncrease--- \n"+"Av_T: "+ temp.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprDecrease
+					event temp2:get_sensor?av_temprature
+					guard temp2.t>tmrature+1 
+					action do
+						//request_actuator!SwitchOff(temp2.id)
+						// switch off all devices
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOff(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprIncrease -> TemprDecrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprIncrease 
+					event temp:get_sensor?temperature
+					guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
+					action do
+						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
+						request_actuator!SwitchOn(temp.id)
+						print("---TemprIncrease -> TemprIncrease--- \n"+"T" + temp.id + ": "+ temp.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprDecrease
+					event temp2:get_sensor?temperature
+					guard temp2.t>tmrature+1 
+					action do
+						request_actuator!SwitchOff(temp2.id)
+						print("---TemprIncrease -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 				}
 
 				state TemprDecrease{ // Invariant: Switch is OFF and temperature should decrease
 				
 					transition-> TemprDecrease
-					event temp:get_sensor?temperature
+					event temp:get_sensor?av_temprature
 					guard temp.t>=tmrature-1 // it should keep decreasing until well below the desired temperature
 					action do
-						// TRACING to follow thermostat print("TempDecrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
+						// TRACING to follow thermostat print("TempDecrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n")
+						//request_actuator!SwitchOff(temp.id)
+						// switch off all devices
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOff(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprDecrease -> TemprDecrease--- \n"+"Av_T: "+ temp.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease
-					event temp2:get_sensor?temperature
+					event temp2:get_sensor?av_temprature
 					guard temp2.t<tmrature-1
 					action do
-						request_actuator!SwitchOn(switch_id)
+						//request_actuator!SwitchOn(temp2.id)
+						i=0
+						while (i<last_thermo) do
+							request_actuator!SwitchOn(thermometers[last_thermo])
+							i=i+1
+						end
+						print("---TemprDecrease -> TemprIncrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprIncrease 
+					event temp:get_sensor?temperature
+					guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
+					action do
+						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
+						request_actuator!SwitchOn(temp.id)
+						print("---TemprDecrease -> TemprIncrease--- \n"+"T" + temp.id + ": "+ temp.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+					end
+					
+					transition -> TemprDecrease
+					event temp2:get_sensor?temperature
+					guard temp2.t>tmrature+1 
+					action do
+						request_actuator!SwitchOff(temp2.id)
+						print("---TemprDecrease -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 				}
 
+				
+				transition -> Thermostat
+				event mg_sensor:get_mgSensor?WindowOpened
+				action do
+						request_actuator!SwitchOff(mg_sensor.mgid)
+						print("window opened received")
+				end
+				
+				transition -> Thermostat
+				event mg_sensor:get_mgSensor?WindowShut
+				action do
+						request_actuator!SwitchOn(mg_sensor.mgid)
+						print("window shut received")
+				end
 				
 				transition -> On
 				event swon:human_input?SwitchOn
@@ -608,6 +784,17 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					tmrature = set_temp.t
 				end
 			} // end Thermostat
+			
+			
+				state WindowOpened{
+					transition -> Thermostat
+					event temp:get_sensor?temperature
+					action do
+						//request_actuator!SwitchOff(mg_sensor.mgid)
+						print("window opened getting back to thermostat")
+					end
+				}
+				
 			
 			state On {
 				transition -> Off
@@ -666,6 +853,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			action do
 				human_output!prompt("Adding devices has been done and then blocked")
 			end	
+			
+			transition -> Running
+			event human_input?add_doorLockSensor
+			action do
+				human_output!prompt("Adding door lock sensor has been done and then blocked")
+			end	
+			transition -> Running
+			event human_input?add_magneticSensor
+			action do
+				human_output!prompt("Adding magnetic sensors has been done and then blocked")
+			end	
+			
 			// Messages the cannot occur - since they are always handled
 			transition -> Running
 			event human_input?SwitchOn

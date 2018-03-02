@@ -12,35 +12,35 @@ thing TimerJava includes Timer
     
     function startTimer(delay : Integer) do
            cancel()
-           'Thread t = new Thread(){
+           `Thread t = new Thread(){
                	public void run() {
                	try {
-               	sleep(' & delay & ');'
+               	sleep(` & delay & `);`
            		timer!timer_timeout()
-            '} catch (InterruptedException ex) {
+            `} catch (InterruptedException ex) {
             	//timer canceled, do nothing and just terminate this thread
 			}  catch (Exception ex) {
                ex.printStackTrace();
                //looking at Javas Thread API, can only happen if delay if negative, but that is checked in the guard in the statemachine. Double precaution
             } finally {
             	yield();
-                interrupt();'
-             timer = 'null'   
-            '}
+                interrupt();`
+             timer = `null`   
+            `}
                                                                    
     		}
-            };'
-            timer = 't' 
-            '' & timer & '.start();'                
+            };`
+            timer = `t` 
+            `` & timer & `.start();`                
     end
             
     function cancel() do
-        if (not(timer == 'null')) do
-            'try {'
-            '' & timer & '.interrupt();'
-            '}  catch (Exception ex) {
+        if (not(timer == `null`)) do
+            `try {`
+            `` & timer & `.interrupt();`
+            `}  catch (Exception ex) {
                     ex.printStackTrace();//indicates a problem that is not part of the expected behavior.
-             }'
+             }`
         end
     end
 

@@ -130,11 +130,11 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 
 thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, TimerClient {
 // TimerClient introduced 160310
-	required port provide_val {sends temperature}
+	required port provide_val {sends temperature, av_temprature}
 	required port show_values {sends temperature}
 	provided port require_val {receives add_thermometer, set_polling_interval}
 	provided port initial {receives initialize}
-	provided port get_values {receives temperature} // SIMULATION
+	provided port get_values {receives temperature,av_temprature} // SIMULATION
 	
 	property ts:Tellstick // kick-down 
 	
@@ -152,6 +152,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 	property sensortype:Integer // temporary value for sensor type
 	property temp_s:Double // temporary temperature value
 	property found:Boolean // temporary - true when item found in loop
+	property temp_sum:Double = 0
 	
 	statechart behaviorThermometerSet init Init {
 		state Init {
@@ -166,18 +167,23 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 		transition -> Idle
 			event timout:timer?timer_timeout // 160310
 			action do
+				temp_sum = 0
 				i=0
 				while (i<last_thermo)do
 					id_s=thermometers[i]
 					temp_s=thermoval[i]	
 					// SIMULATION: if the temperature is outside reasonable range, do not return temperature. Simulates thermometer error
-					if (temp_s > -40 and temp_s < 50) do		
+					if (temp_s >= 10 and temp_s < 30) do		
 						provide_val!temperature(id_s,thermotext[i],temp_s)
 						show_values!temperature(id_s,thermotext[i],temp_s)
+						temp_sum = temp_sum + thermoval[i]
+						
+						if(i==(last_thermo-1)) do 
+							provide_val!av_temprature((temp_sum/(i)))
+						end
 					end
 					i=i+1
 				end 
-				
 				timer!timer_start(poll_intrvl) // restarting the polling cycle
 			end
 			transition -> Idle
@@ -191,7 +197,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				id_s=addt.id
 				thermometers[last_thermo]=id_s
 				thermotext[last_thermo]=addt.txt
-				thermoval[last_thermo]= 0 // just a default temperature
+				thermoval[last_thermo]= 10 // just a default temperature
 				last_thermo = last_thermo+1
 			end
 			// SIMULATION receiving temperature from simulation interface
@@ -199,19 +205,19 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 			event put_temp:get_values?temperature
 			action do
 				id_s=put_temp.id
-				
+				temp_sum = 0
 				i=0
-				found = false
-				while (i<last_thermo and (not found)) do
+				while (i<last_thermo) do
 					if (id_s==thermometers[i]) do
-						found=true // trick to terminate while loop
+						thermoval[i]=put_temp.t	
+						temp_sum = temp_sum + thermoval[i]
 					end
 					i=i+1
 				end
-				if (found) do
-					thermoval[i-1]=put_temp.t	
-				end
+				//provide_val!av_temprature((temp_sum/(i)))
+				
 			end
+			
 		}
 	}
 } // ThermometerSet
@@ -333,8 +339,12 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 				id_mgs=addmgs.mgid
 				magneticSensors[last_mgSensor]=id_mgs
 				magneticSensortext[last_mgSensor]=addmgs.txt
-				//magneticSensors[last_mgSensor]= 0 // just a default status
+				// just a default status
+				magneticSensorval[last_mgSensor]=windowShut
 				last_mgSensor = last_mgSensor+1
+				
+				provide_val!WindowShut(id_mgs)
+				show_val!WindowShut(id_mgs)
 			end
 			
 			transition -> Idle
@@ -352,12 +362,13 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 				end
 				if (found) do
 					magneticSensorval[i-1]=windowOpened
+					provide_val!WindowOpened(id_mgs)
 					show_val!WindowOpened(id_mgs)
 				end
 			end
 			
 			transition -> Idle
-			event close_window:get_values?WindowOpened
+			event close_window:get_values?WindowShut
 			action do
 				id_mgs=close_window.mgid
 				
@@ -371,6 +382,7 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 				end
 				if (found) do
 					magneticSensorval[i-1]=windowShut
+					provide_val!WindowShut(id_mgs)
 					show_val!WindowShut(id_mgs)
 				end
 			end
@@ -417,8 +429,11 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 				id_dl=addLock.dlid
 				doorLocks[last_dlSensor]=id_dl
 				doorLocktext[last_dlSensor]=addLock.txt
-				//magneticSensors[last_mgSensor]= 0 // just a default status
+				doorLockval[last_dlSensor]=doorLocked // just a default status
 				last_dlSensor = last_dlSensor+1
+				
+				provide_val!DoorLocked(id_dl)
+				show_val!DoorLocked(id_dl)
 			end
 			
 			transition -> Idle
@@ -436,6 +451,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 				end
 				if (found) do
 					doorLockval[i-1]=doorOpened
+					provide_val!DoorOpened(id_dl)
 					show_val!DoorOpened(id_dl)
 				end
 			end
@@ -455,12 +471,13 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 				end
 				if (found) do
 					doorLockval[i-1]=doorShut
+					provide_val!DoorShut(id_dl)
 					show_val!DoorShut(id_dl)
 				end
 			end
 			
 			transition -> Idle
-			event lock_door:get_values?DoorShut
+			event lock_door:get_values?DoorLocked
 			action do
 				id_dl=lock_door.dlid
 				
@@ -474,6 +491,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 				end
 				if (found) do
 					doorLockval[i-1]=doorLocked
+					provide_val!DoorLocked(id_dl)
 					show_val!DoorLocked(id_dl)
 				end
 			end
