@@ -179,7 +179,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 						temp_sum = temp_sum + thermoval[i]
 						
 						if(i==(last_thermo-1)) do 
-							provide_val!av_temprature((temp_sum/(i)))
+							provide_val!av_temprature((temp_sum/thermometers[i]))
 						end
 					end
 					i=i+1
