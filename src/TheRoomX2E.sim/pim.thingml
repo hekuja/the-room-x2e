@@ -303,12 +303,12 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			}
 			
 			state AddMagneticSensor2 {
-				transition -> AddMagneticSensor3
+				transition -> AddDevice
 				event addmgs2:human_input?add_magneticSensor
 				action do
 					mg_sensor_id=addmgs2.mgid
 					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs2.txt)
-					human_output!prompt("Please add the third magnetic sensor") 
+					human_output!prompt("Please add switch devices") 
 				end
 				transition -> AddMagneticSensor2 // Cover other messages
 				event human_input?add_doorLockSensor
@@ -347,54 +347,10 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				end
 				
 				// temperature is handled on Build level
-			}
-			
-			state AddMagneticSensor3 {
-				transition -> AddDevice
-				event addmgs2:human_input?add_magneticSensor
-				action do
-					mg_sensor_id=addmgs2.mgid
-					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs2.txt)
-					human_output!prompt("Please add switch devices") 
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?add_doorLockSensor
-				action do
-					human_output!prompt("Door lock sensor already added, please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?add_thermometer
-				action do
-					human_output!prompt("Thermometers already added, please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?add_device
-				action do
-					human_output!prompt("Please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?SwitchOn
-				action do
-					human_output!prompt("Please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?SwitchOff
-				action do
-					human_output!prompt("Please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?set_temperature
-				action do
-					human_output!prompt("Please add third magnetic sensor")
-				end
-				transition -> AddMagneticSensor3 // Cover other messages
-				event human_input?set_polling_interval
-				action do
-					human_output!prompt("Please add third magnetic sensor")
-				end
-				
 				// temperature is handled on Build level
 			}
+			
+			
 			
 			state AddDevice {
 				transition -> AddDevice2
@@ -444,12 +400,12 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			}
 			
 			state AddDevice2 {
-				transition -> AddDevice3
-				event adddev2:human_input?add_device
+				transition -> SetThermostat
+				event adddev3:human_input?add_device
 				action do
-					switch_id=adddev2.did
+					switch_id=adddev3.did
 					request_actuator!add_device(switch_id)
-					human_output!prompt("Please third device") // SIMULATION: prompting on console for the user to react properly
+					human_output!prompt("Please give thermostat temperature setting") // SIMULATION: prompting on console for the user to react properly
 				end
 				
 				transition -> AddDevice2
@@ -490,52 +446,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				// temperature and set_temperature handled on Build level
 			}
 			
-			state AddDevice3 {
-				transition -> SetThermostat
-				event adddev3:human_input?add_device
-				action do
-					switch_id=adddev3.did
-					request_actuator!add_device(switch_id)
-					human_output!prompt("Please give thermostat temperature setting") // SIMULATION: prompting on console for the user to react properly
-				end
-				
-				transition -> AddDevice3
-				event human_input?SwitchOn
-				action do
-					human_output!prompt("Please add third device")
-				end
-				transition -> AddDevice3
-				event human_input?SwitchOff
-				action do
-					human_output!prompt("Please add third device")
-				end
-				transition -> AddDevice3
-				event human_input?set_polling_interval
-				action do
-					human_output!prompt("Please add third device")
-				end
-				transition -> AddDevice3 // Cover other messages
-				event human_input?add_doorLockSensor
-				action do
-					human_output!prompt("Door lock sensor already added, add third device")
-				end
-				transition -> AddDevice3 // Cover other messages
-				event human_input?add_magneticSensor
-				action do
-					human_output!prompt("Magnetic sensors already added, add third device")
-				end
-				transition -> AddDevice3
-				event human_input?add_thermometer
-				action do
-					human_output!prompt("Thermometers already added, third add device")
-				end
-				transition -> AddDevice3 // Cover other messages
-				event human_input?set_temperature
-				action do
-					human_output!prompt("Please add third device")
-				end
-				// temperature and set_temperature handled on Build level
-			}
 			
 			state SetThermostat {
 				// Here the only message we want is the set_temperature, but this is on one level up to move to Running
