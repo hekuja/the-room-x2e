@@ -15,7 +15,7 @@ import "timer.thingml"
 
 thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShutLockedMsg, MagneticSensorGeneral {
 	provided port get_sensor {
-		receives temperature, av_temprature
+		receives temperature, temprature_sum
 	}
 	required port request_sensor {
 		sends add_thermometer, set_polling_interval
@@ -553,41 +553,10 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 		
 			composite state Thermostat init TemprDecide {  // notice that we are not keeping history, we do not know whether to turn on or off
 				
-				state DoorShut{
-					transition -> TemprDecide
-					event doorLock:get_doorLock?DoorShut
-					action do
-						//request_actuator!SwitchOff(switch_id)
-					end
-				}
-				
-				state DoorLocked{
-					transition -> TemprDecide
-					event doorLock:get_doorLock?DoorLocked
-					action do
-						//request_actuator!SwitchOff(switch_id)
-					end
-				}
-					state WindowOpened{
-					transition -> TemprDecide
-					event temp:get_sensor?temperature
-					action do
-						//request_actuator!SwitchOff(mg_sensor.mgid)
-						print("window opened getting back to thermostat")
-					end
-				}
-				state WindowShut{
-					transition -> TemprDecide
-					event temp:get_sensor?temperature
-					action do
-						//request_actuator!SwitchOff(mg_sensor.mgid)
-						print("window opened getting back to thermostat")
-					end
-				}
-				
+
 				state TemprDecide {
 					transition -> TemprDecrease
-					event temp2:get_sensor?av_temprature
+					event temp2:get_sensor?temprature_sum
 					guard temp2.t >=tmrature  // We choose switch OFF as much as we can here
 					action do
 						// switch off all devices
@@ -596,11 +565,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOff(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprDecide -> TemprDecrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprDecide -> TemprDecrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease
-					event temp2:get_sensor?av_temprature
+					event temp2:get_sensor?temprature_sum
 					guard temp2.t<tmrature
 					action do
 						// switch on all devices
@@ -609,7 +578,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOn(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprDecide -> TemprIncrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprDecide -> TemprIncrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease 
@@ -633,7 +602,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				state TemprIncrease{ // Invariant: Switch is ON and temperature should increase
 				
 					transition -> TemprIncrease 
-					event temp:get_sensor?av_temprature
+					event temp:get_sensor?temprature_sum
 					guard temp.t<tmrature // it should keep increasing until well above the desired temperature
 					action do
 						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
@@ -643,11 +612,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOn(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprIncrease -> TemprIncrease--- \n"+"Av_T: "+ temp.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprIncrease -> TemprIncrease--- \n"+"Tot_T: "+ temp.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprDecrease
-					event temp2:get_sensor?av_temprature
+					event temp2:get_sensor?temprature_sum
 					guard temp2.t>=tmrature 
 					action do
 						//request_actuator!SwitchOff(temp2.id)
@@ -657,7 +626,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOff(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprIncrease -> TemprDecrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprIncrease -> TemprDecrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease 
@@ -681,7 +650,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				state TemprDecrease{ // Invariant: Switch is OFF and temperature should decrease
 				
 					transition-> TemprDecrease
-					event temp:get_sensor?av_temprature
+					event temp:get_sensor?temprature_sum
 					guard temp.t>=tmrature // it should keep decreasing until well below the desired temperature
 					action do
 						// TRACING to follow thermostat print("TempDecrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n")
@@ -692,11 +661,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOff(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprDecrease -> TemprDecrease--- \n"+"Av_T: "+ temp.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprDecrease -> TemprDecrease--- \n"+"Tot_T: "+ temp.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease
-					event temp2:get_sensor?av_temprature
+					event temp2:get_sensor?temprature_sum
 					guard temp2.t<tmrature
 					action do
 						//request_actuator!SwitchOn(temp2.id)
@@ -705,7 +674,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							request_actuator!SwitchOn(thermometers[last_thermo])
 							i=i+1
 						end
-						print("---TemprDecrease -> TemprIncrease--- \n"+"Av_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						print("---TemprDecrease -> TemprIncrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
 					end
 					
 					transition -> TemprIncrease 

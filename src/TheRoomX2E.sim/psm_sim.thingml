@@ -130,11 +130,11 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 
 thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, TimerClient {
 // TimerClient introduced 160310
-	required port provide_val {sends temperature, av_temprature}
+	required port provide_val {sends temperature, temprature_sum}
 	required port show_values {sends temperature}
 	provided port require_val {receives add_thermometer, set_polling_interval}
 	provided port initial {receives initialize}
-	provided port get_values {receives temperature,av_temprature} // SIMULATION
+	provided port get_values {receives temperature,temprature_sum} // SIMULATION
 	
 	property ts:Tellstick // kick-down 
 	
@@ -179,7 +179,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 						temp_sum = temp_sum + thermoval[i]
 						
 						if(i==(last_thermo-1)) do 
-							provide_val!av_temprature((temp_sum/thermometers[i]))
+							provide_val!temprature_sum(temp_sum)
 						end
 					end
 					i=i+1
