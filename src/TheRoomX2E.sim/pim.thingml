@@ -59,6 +59,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	statechart PIM_behavior init Build {
 		composite state Build init AddThermo keeps history {
 			
+				
 			
 			state AddThermo {
 				transition -> AddThermo2
@@ -400,12 +401,12 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			}
 			
 			state AddDevice2 {
-				transition -> SetThermostat
-				event adddev3:human_input?add_device
+				transition -> AddDevice3
+				event adddev2:human_input?add_device
 				action do
-					switch_id=adddev3.did
+					switch_id=adddev2.did
 					request_actuator!add_device(switch_id)
-					human_output!prompt("Please give thermostat temperature setting") // SIMULATION: prompting on console for the user to react properly
+					human_output!prompt("Please third device") // SIMULATION: prompting on console for the user to react properly
 				end
 				
 				transition -> AddDevice2
@@ -446,6 +447,52 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				// temperature and set_temperature handled on Build level
 			}
 			
+			state AddDevice3 {
+				transition -> SetThermostat
+				event adddev3:human_input?add_device
+				action do
+					switch_id=adddev3.did
+					request_actuator!add_device(switch_id)
+					human_output!prompt("Please give thermostat temperature setting") // SIMULATION: prompting on console for the user to react properly
+				end
+				
+				transition -> AddDevice3
+				event human_input?SwitchOn
+				action do
+					human_output!prompt("Please add third device")
+				end
+				transition -> AddDevice3
+				event human_input?SwitchOff
+				action do
+					human_output!prompt("Please add third device")
+				end
+				transition -> AddDevice3
+				event human_input?set_polling_interval
+				action do
+					human_output!prompt("Please add third device")
+				end
+				transition -> AddDevice3 // Cover other messages
+				event human_input?add_doorLockSensor
+				action do
+					human_output!prompt("Door lock sensor already added, add third device")
+				end
+				transition -> AddDevice3 // Cover other messages
+				event human_input?add_magneticSensor
+				action do
+					human_output!prompt("Magnetic sensors already added, add third device")
+				end
+				transition -> AddDevice3
+				event human_input?add_thermometer
+				action do
+					human_output!prompt("Thermometers already added, third add device")
+				end
+				transition -> AddDevice3 // Cover other messages
+				event human_input?set_temperature
+				action do
+					human_output!prompt("Please add third device")
+				end
+				// temperature and set_temperature handled on Build level
+			}
 			
 			state SetThermostat {
 				// Here the only message we want is the set_temperature, but this is on one level up to move to Running
@@ -510,7 +557,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					transition -> TemprDecide
 					event doorLock:get_doorLock?DoorShut
 					action do
-						request_actuator!SwitchOff(switch_id)
+						//request_actuator!SwitchOff(switch_id)
 					end
 				}
 				
@@ -518,14 +565,30 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					transition -> TemprDecide
 					event doorLock:get_doorLock?DoorLocked
 					action do
-						request_actuator!SwitchOff(switch_id)
+						//request_actuator!SwitchOff(switch_id)
+					end
+				}
+					state WindowOpened{
+					transition -> TemprDecide
+					event temp:get_sensor?temperature
+					action do
+						//request_actuator!SwitchOff(mg_sensor.mgid)
+						print("window opened getting back to thermostat")
+					end
+				}
+				state WindowShut{
+					transition -> TemprDecide
+					event temp:get_sensor?temperature
+					action do
+						//request_actuator!SwitchOff(mg_sensor.mgid)
+						print("window opened getting back to thermostat")
 					end
 				}
 				
 				state TemprDecide {
 					transition -> TemprDecrease
 					event temp2:get_sensor?av_temprature
-					guard temp2.t >=tmrature-1  // We choose switch OFF as much as we can here
+					guard temp2.t >=tmrature  // We choose switch OFF as much as we can here
 					action do
 						// switch off all devices
 						i=0
@@ -538,7 +601,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprIncrease
 					event temp2:get_sensor?av_temprature
-					guard temp2.t<tmrature-1
+					guard temp2.t<tmrature
 					action do
 						// switch on all devices
 						i=0
@@ -560,7 +623,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
-					guard temp2.t>tmrature+1 
+					guard temp2.t>=tmrature 
 					action do
 						request_actuator!SwitchOff(temp2.id)
 						print("---TemprDecide -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch off \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
@@ -571,7 +634,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				
 					transition -> TemprIncrease 
 					event temp:get_sensor?av_temprature
-					guard temp.t<=tmrature+1 // it should keep increasing until well above the desired temperature
+					guard temp.t<tmrature // it should keep increasing until well above the desired temperature
 					action do
 						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
 						//request_actuator!SwitchOn(temp.id)
@@ -585,7 +648,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprDecrease
 					event temp2:get_sensor?av_temprature
-					guard temp2.t>tmrature+1 
+					guard temp2.t>=tmrature 
 					action do
 						//request_actuator!SwitchOff(temp2.id)
 						// switch off all devices
@@ -608,7 +671,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
-					guard temp2.t>tmrature+1 
+					guard temp2.t>tmrature 
 					action do
 						request_actuator!SwitchOff(temp2.id)
 						print("---TemprIncrease -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
@@ -619,7 +682,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				
 					transition-> TemprDecrease
 					event temp:get_sensor?av_temprature
-					guard temp.t>=tmrature-1 // it should keep decreasing until well below the desired temperature
+					guard temp.t>=tmrature // it should keep decreasing until well below the desired temperature
 					action do
 						// TRACING to follow thermostat print("TempDecrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n")
 						//request_actuator!SwitchOff(temp.id)
@@ -634,7 +697,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprIncrease
 					event temp2:get_sensor?av_temprature
-					guard temp2.t<tmrature-1
+					guard temp2.t<tmrature
 					action do
 						//request_actuator!SwitchOn(temp2.id)
 						i=0
@@ -656,7 +719,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
-					guard temp2.t>tmrature+1 
+					guard temp2.t>=tmrature 
 					action do
 						request_actuator!SwitchOff(temp2.id)
 						print("---TemprDecrease -> TemprDecrease--- \n"+"T" + temp2.id + ": "+ temp2.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
@@ -696,14 +759,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			} // end Thermostat
 			
 			
-				state WindowOpened{
-					transition -> Thermostat
-					event temp:get_sensor?temperature
-					action do
-						//request_actuator!SwitchOff(mg_sensor.mgid)
-						print("window opened getting back to thermostat")
-					end
-				}
+			
 				
 			
 			state On {
