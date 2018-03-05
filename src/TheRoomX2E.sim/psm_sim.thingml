@@ -304,7 +304,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 
 thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	required port provide_val {sends WindowOpened, WindowShut}
-	required port show_val {sends WindowOpened, WindowShut}
+	required port show_val {sends WindowOpened, WindowShut,WindowIsAlreadyOpen,WindowIsAlreadyShut}
 	provided port require_val {receives add_magneticSensor}
 	provided port get_values {receives WindowOpened, WindowShut}
 	
@@ -360,11 +360,12 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and ( magneticSensorval[i-1]!=windowOpened) as Boolean) do
 					magneticSensorval[i-1]=windowOpened
 					provide_val!WindowOpened(id_mgs)
 					show_val!WindowOpened(id_mgs)
 				end
+				else if (found and ( magneticSensorval[i-1]==windowOpened) as Boolean) do show_val!WindowIsAlreadyOpen(id_mgs) end
 			end
 			
 			transition -> Idle
@@ -380,11 +381,12 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and ( magneticSensorval[i-1]!=windowShut) as Boolean) do
 					magneticSensorval[i-1]=windowShut
 					provide_val!WindowShut(id_mgs)
 					show_val!WindowShut(id_mgs)
 				end
+				else if (found and ( magneticSensorval[i-1]==windowShut) as Boolean) do show_val!WindowIsAlreadyShut(id_mgs) end
 			end
 		}
 	}

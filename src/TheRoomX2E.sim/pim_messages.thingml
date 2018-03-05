@@ -38,6 +38,8 @@ thing fragment MagneticSensorGeneral{
 thing fragment OpenedShutMsg includes MagneticSensorGeneral{
 	message WindowOpened(mgid:Integer);
 	message WindowShut(mgid:Integer);
+	message WindowIsAlreadyShut(mgid:Integer)
+	message WindowIsAlreadyOpen(mgid:Integer)
 }
 
 thing fragment OpenedShutLockedMsg includes MagneticSensorGeneral{
