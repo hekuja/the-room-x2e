@@ -70,7 +70,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	property devicetype:String
 	property devicemethods:Long
 	property devicelastcmd:String
-	property devicelastval:Long
+	property devicelastval:Long 
 	
 	function observe_sensors() do
 		// Now we send to PIM all the Sensor gadgets which are managed by that Tellstick
@@ -135,7 +135,6 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 	provided port require_val {receives add_thermometer, set_polling_interval}
 	provided port initial {receives initialize}
 	provided port get_values {receives temperature,temprature_sum} // SIMULATION
-	
 	property ts:Tellstick // kick-down 
 	
 	property thermometers:Integer[25] // Identifiers of the thermometers in the set
@@ -173,7 +172,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 					id_s=thermometers[i]
 					temp_s=thermoval[i]	
 					// SIMULATION: if the temperature is outside reasonable range, do not return temperature. Simulates thermometer error
-					if (temp_s >= 10 and temp_s < 30) do		
+					if (temp_sum >= -40 and temp_sum < 50) do		
 						provide_val!temperature(id_s,thermotext[i],temp_s)
 						show_values!temperature(id_s,thermotext[i],temp_s)
 						temp_sum = temp_sum + thermoval[i]
@@ -217,6 +216,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				//provide_val!av_temprature((temp_sum/(i)))
 				
 			end
+			
 			
 		}
 	}
@@ -314,10 +314,10 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	
 	property magneticSensors:Integer[25] // Identifiers of the mg sensors in the set
 	property magneticSensortext:String[25] // corresponding explanatory text 
-	property magneticSensorval:Integer[25] 
+	
 	property found:Boolean 
 	property i:Integer // runner index in list
-	
+	property magneticSensorval:Integer[25] 
 	property id_mgs:Long
 	property last_mgSensor:Integer = 0 
 	property windowShut:Integer =0
