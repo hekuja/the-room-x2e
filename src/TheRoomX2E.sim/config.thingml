@@ -47,6 +47,7 @@ configuration CPS {
 	connector pim.request_actuator => onoff1.require_val
 	connector pim.request_mgSensor => mg1.require_val
 	connector pim.request_doorLock => dl.require_val
+	connector pim.request_alarm_beep => dl.require_alarm_beel_val
 	connector pim.human_output => myself.get_values
 	
 	// SIMULATION

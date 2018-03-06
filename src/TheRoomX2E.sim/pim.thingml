@@ -32,7 +32,9 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	provided port get_doorLock {
 		receives DoorOpened,DoorShut,DoorLocked
 	}
-	
+	required port request_alarm_beep{
+		sends TurnAlarmOn,TurnAlarmOff,TurnBeepOn,TurnBeepOff
+	}
 	required port request_doorLock{
 		sends add_doorLockSensor
 	}
@@ -52,8 +54,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property switch_id:Integer // the single on-off switch identifier
 	property doorLock_id:Integer
 	property mg_sensor_id:Integer
-	property thermometers:Integer[25] 
-	property thermoval:Double[25]
+	property thermometers:Integer[25] //for book keeping
+	property thermoval:Double[25] //for book keeping
 	property thermovalforOpenedWindow:Double =0
 	property last_thermo:Integer = 0 // number of thermometers in the set
 	property i:Integer = 0 

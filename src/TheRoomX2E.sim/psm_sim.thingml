@@ -392,14 +392,13 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	}
 }
 
-thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
+thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 	required port provide_val {sends DoorOpened, DoorShut,DoorLocked}
-	required port show_val {sends DoorOpened, DoorShut,DoorLocked}
+	required port show_val {sends DoorOpened, DoorShut,DoorLocked,AlarmOn,AlarmOff, BeepOn,BeepOff}
 	provided port require_val {receives add_doorLockSensor}
 	provided port get_values {receives DoorOpened, DoorShut,DoorLocked}
-	
 	provided port initial {receives initialize}
-	
+	provided port require_alarm_beel_val {receives TurnAlarmOn,TurnAlarmOff,TurnBeepOn,TurnBeepOff}
 	property ts:Tellstick // kick-down 
 	
 	property doorLocks:Integer[1] // Identifiers of the door lock sensors in the set
@@ -414,6 +413,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 	property doorOpened:Integer = 0
 	property doorShut:Integer = 1
 	property doorLocked:Integer = 2
+	property poll_intrvl:Integer = 50000 // 5 sec
 	
 	statechart behaviorDoorLock init Init{
 		state Init {
@@ -425,6 +425,13 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 		}
 		
 		state Idle {
+			
+			transition -> Idle
+			event timout:timer?timer_timeout // 160310
+			action do
+				show_val!AlarmOn(last_dlSensor)// restarting the polling cycle
+			end
+			
 			transition -> Idle
 			event addLock:require_val?add_doorLockSensor
 			action do				
@@ -456,7 +463,43 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 					provide_val!DoorOpened(id_dl)
 					show_val!DoorOpened(id_dl)
 				end
+				
+				timer!timer_cancel() 
 			end
+			//door alarm transition 
+			transition -> Idle
+			event locked_door:require_alarm_beel_val?TurnAlarmOn
+			action do
+				id_dl=locked_door.dlid
+				show_val!AlarmOn(id_dl)
+				
+			end
+			transition -> Idle
+			event locked_door:require_alarm_beel_val?TurnAlarmOff
+			action do
+				id_dl=locked_door.dlid
+				show_val!AlarmOff(id_dl)
+				timer!timer_cancel()
+			end
+			
+			transition -> Idle
+			event locked_door:require_alarm_beel_val?TurnBeepOn
+			action do
+				id_dl=locked_door.dlid
+				show_val!BeepOn(id_dl)
+				
+			end
+			transition -> Idle
+			event locked_door:require_alarm_beel_val?TurnBeepOff
+			action do
+				id_dl=locked_door.dlid
+				show_val!BeepOff(id_dl)
+				timer!timer_cancel()
+			end
+			
+			//end alarm
+			
+			
 			
 			transition -> Idle
 			event shut_door:get_values?DoorShut
@@ -476,10 +519,12 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 					provide_val!DoorShut(id_dl)
 					show_val!DoorShut(id_dl)
 				end
+				//timer!timer_start(poll_intrvl)
 			end
 			
 			transition -> Idle
 			event lock_door:get_values?DoorLocked
+			
 			action do
 				id_dl=lock_door.dlid
 				
@@ -495,6 +540,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg{
 					doorLockval[i-1]=doorLocked
 					provide_val!DoorLocked(id_dl)
 					show_val!DoorLocked(id_dl)
+					
 				end
 			end
 		}
@@ -547,4 +593,8 @@ thing DoorLockSim includes OpenedShutLockedMsg
 	provided port show_openshutlocked {
 		receives DoorOpened, DoorShut, DoorLocked
 	}
+	provided port show_alarm_beep {
+		receives BeepOn,BeepOff,AlarmOn,AlarmOff
+	}
+	
 }
