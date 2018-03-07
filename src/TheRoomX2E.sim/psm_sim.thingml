@@ -320,8 +320,8 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 	property magneticSensorval:Integer[25] 
 	property id_mgs:Long
 	property last_mgSensor:Integer = 0 
-	property windowShut:Integer =0
-	property windowOpened:Integer =1
+	property windowShut:Integer =1
+	property windowOpened:Integer =2
 	
 	statechart behaviorMagneticSensorSet init Init{
 		state Init {
@@ -388,13 +388,14 @@ thing MagneticSensorSet includes PSM_Msg, GeneralMsg, OpenedShutMsg{
 				end
 				else if (found and ( magneticSensorval[i-1]==windowShut) as Boolean) do show_val!WindowIsAlreadyShut(id_mgs) end
 			end
+			
 		}
 	}
 }
 
 thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 	required port provide_val {sends DoorOpened, DoorShut,DoorLocked}
-	required port show_val {sends DoorOpened, DoorShut,DoorLocked,AlarmOn,AlarmOff, BeepOn,BeepOff}
+	required port show_val {sends DoorOpened, DoorShut,DoorLocked,AlarmOn,AlarmOff, BeepOn,BeepOff,DoorIsAlreadyLocked,DoorIsAlreadyOpen,DoorIsAlreadyShut}
 	provided port require_val {receives add_doorLockSensor}
 	provided port get_values {receives DoorOpened, DoorShut,DoorLocked}
 	provided port initial {receives initialize}
@@ -410,10 +411,10 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 	
 	property id_dl:Long
 	property last_dlSensor:Integer = 0 
-	property doorOpened:Integer = 0
-	property doorShut:Integer = 1
-	property doorLocked:Integer = 2
-	property poll_intrvl:Integer = 50000 // 5 sec
+	property doorOpened:Integer = 1
+	property doorShut:Integer = 2
+	property doorLocked:Integer = 3
+	property poll_intrvl:Integer = 5000// 5 sec
 	
 	statechart behaviorDoorLock init Init{
 		state Init {
@@ -427,9 +428,10 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 		state Idle {
 			
 			transition -> Idle
-			event timout:timer?timer_timeout // 160310
+			event timout:timer?timer_timeout 
 			action do
-				show_val!AlarmOn(last_dlSensor)// restarting the polling cycle
+				show_val!AlarmOn(last_dlSensor)
+				print("Timer has run \n")
 			end
 			
 			transition -> Idle
@@ -458,12 +460,13 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and (doorLockval[i-1]!=doorOpened) as Boolean) do
 					doorLockval[i-1]=doorOpened
 					provide_val!DoorOpened(id_dl)
 					show_val!DoorOpened(id_dl)
+					show_val!BeepOff(id_dl)
 				end
-				
+				else if (found and ( doorLockval[i-1]==doorOpened) as Boolean) do show_val!DoorIsAlreadyOpen(id_dl) end
 				timer!timer_cancel() 
 			end
 			//door alarm transition 
@@ -487,7 +490,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 			action do
 				id_dl=locked_door.dlid
 				show_val!BeepOn(id_dl)
-				
+				timer!timer_start(poll_intrvl)
 			end
 			transition -> Idle
 			event locked_door:require_alarm_beel_val?TurnBeepOff
@@ -498,8 +501,6 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 			end
 			
 			//end alarm
-			
-			
 			
 			transition -> Idle
 			event shut_door:get_values?DoorShut
@@ -514,17 +515,18 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and (doorLockval[i-1]!=doorShut) as Boolean) do
 					doorLockval[i-1]=doorShut
 					provide_val!DoorShut(id_dl)
 					show_val!DoorShut(id_dl)
+					//show_val!BeepOff(id_dl)
 				end
+				else if (found and ( doorLockval[i-1]==doorShut) as Boolean) do show_val!DoorIsAlreadyShut(id_dl) end
 				//timer!timer_start(poll_intrvl)
 			end
 			
 			transition -> Idle
 			event lock_door:get_values?DoorLocked
-			
 			action do
 				id_dl=lock_door.dlid
 				
@@ -536,12 +538,12 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and ( doorLockval[i-1]!=doorLocked) as Boolean) do
 					doorLockval[i-1]=doorLocked
 					provide_val!DoorLocked(id_dl)
 					show_val!DoorLocked(id_dl)
-					
 				end
+				else if (found and ( doorLockval[i-1]==doorLocked) as Boolean) do show_val!DoorIsAlreadyLocked(id_dl) end
 			end
 		}
 	}

@@ -54,5 +54,7 @@ thing fragment OpenedShutLockedMsg includes MagneticSensorGeneral{
 	message TurnBeepOn(dlid:Integer);
 	message TurnAlarmOff(dlid:Integer);
 	message TurnBeepOff(dlid:Integer);
-	
+	message DoorIsAlreadyShut(mgid:Integer)
+	message DoorIsAlreadyOpen(mgid:Integer)
+	message DoorIsAlreadyLocked(mgid:Integer)
 }

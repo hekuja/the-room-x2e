@@ -43,7 +43,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 		sends add_device, SwitchOn, SwitchOff
 	}
 	provided port human_input {
-		receives add_thermometer,add_doorLockSensor,add_magneticSensor, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval
+		receives add_thermometer,add_doorLockSensor,add_magneticSensor, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval,TurnAlarmOff
 	}
 	required port human_output {
 		sends temperature, prompt
@@ -56,15 +56,24 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property mg_sensor_id:Integer
 	property thermometers:Integer[25] //for book keeping
 	property thermoval:Double[25] //for book keeping
+	property total_room_temp:Double = 0
 	property thermovalforOpenedWindow:Double =0
 	property last_thermo:Integer = 0 // number of thermometers in the set
 	property i:Integer = 0 
 	property found:Boolean 
+	property thereCouldBeAnOpenWindow:Boolean
+	
+	// for book keeping	around the magnetic sensors
+	property magneticSensors:Integer[25] 
+	property magneticSensorval:Integer[25]
+	property last_mgSensor:Integer = 0 
+	property windowShut:Integer =1
+	property windowOpened:Integer =2
+	
+	
 	statechart PIM_behavior init Build {
 		composite state Build init AddThermo keeps history {
-			
-				
-			
+		
 			state AddThermo {
 				transition -> AddThermo2
 				event addt:human_input?add_thermometer
@@ -73,6 +82,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					request_sensor!add_thermometer(thermo_id,addt.txt)
 					thermometers[last_thermo]=thermo_id
 					thermoval[last_thermo] = 10
+					total_room_temp = total_room_temp +thermoval[last_thermo]
 					last_thermo = last_thermo+1
 					human_output!prompt("Please add second thermometer") // SIMULATION: prompting on console for the user to react properly
 				end
@@ -124,6 +134,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					request_sensor!add_thermometer(thermo_id,addt.txt)
 					thermometers[last_thermo]=thermo_id
 					thermoval[last_thermo] = 10
+					total_room_temp = total_room_temp +thermoval[last_thermo]
 					last_thermo = last_thermo+1
 					human_output!prompt("Please add the third thermometer") 
 				end
@@ -174,6 +185,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					request_sensor!add_thermometer(thermo_id,addt.txt)
 					thermometers[last_thermo]=thermo_id
 					thermoval[last_thermo] = 10
+					total_room_temp = total_room_temp +thermoval[last_thermo]
 					last_thermo = last_thermo+1
 					human_output!prompt("Please add one door lock sensor") 
 				end
@@ -269,6 +281,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					mg_sensor_id=addmgs1.mgid
 					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs1.txt)
+					
+					// book keeping
+					magneticSensors[last_mgSensor]=mg_sensor_id
+					magneticSensorval[last_mgSensor]=windowShut
+					last_mgSensor = last_mgSensor+1
 					human_output!prompt("Please add the second magnetic sensor") 
 				end
 				transition -> AddMagneticSensor1 // Cover other messages
@@ -316,6 +333,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					mg_sensor_id=addmgs2.mgid
 					request_mgSensor!add_magneticSensor(mg_sensor_id,addmgs2.txt)
+					
+					// book keeping
+					magneticSensors[last_mgSensor]=mg_sensor_id					
+					magneticSensorval[last_mgSensor]=windowShut
+					last_mgSensor = last_mgSensor+1
 					human_output!prompt("Please add switch devices") 
 				end
 				transition -> AddMagneticSensor2 // Cover other messages
@@ -357,8 +379,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				// temperature is handled on Build level
 				// temperature is handled on Build level
 			}
-			
-			
 			
 			state AddDevice {
 				transition -> AddDevice2
@@ -557,45 +577,56 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 		
 		composite state Running init Thermostat keeps history {
 		
-		
 			composite state Thermostat init TemprDecide {  // notice that we are not keeping history, we do not know whether to turn on or off
 				
 				
 				state TemprDecide {
 					transition -> TemprDecrease
-					event temp2:get_sensor?temprature_sum
-					guard (temp2.t - thermovalforOpenedWindow) >=tmrature  // We choose switch OFF as much as we can here
+					event temp2:get_sensor?temperature
+					guard (total_room_temp-thermovalforOpenedWindow >=(tmrature - 1))// temp2.t >=tmrature - 7  // We choose switch OFF as much as we can here
 					action do
-						// switch off all devices
-						if(tmrature >=10 and tmrature <=30)do
-							i=0
-							while (i<last_thermo) do
-								request_actuator!SwitchOff(thermometers[i])
-								i=i+1
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp2.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp2.t
 							end
+						i=i+1
+						end
+						if(tmrature >=10 and tmrature <=30)do
+							request_actuator!SwitchOff(temp2.id)
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecide -> TemprDecrease--- \n"+"Tot_T: "+ (temp2.t - thermovalforOpenedWindow) + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
-					end
+						end
 					
 					transition -> TemprIncrease
-					event temp2:get_sensor?temprature_sum
-					guard (temp2.t - thermovalforOpenedWindow)<tmrature
+					event temp2:get_sensor?temperature
+					guard (total_room_temp-thermovalforOpenedWindow < (tmrature - 1)) 
 					action do
-						// switch on all devices
-						if(tmrature >=10 and tmrature <=30)do
-						i=0
-						while (i<last_thermo) do
-							request_actuator!SwitchOn(thermometers[i])
-							i=i+1
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp2.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp2.t
+							end
+						i=i+1
 						end
+						if(tmrature >=10 and tmrature <=30)do
+							if(magneticSensorval[temp2.id]!=windowOpened or (temp2.t < tmrature - 7	) as Boolean)do request_actuator!SwitchOn(temp2.id) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecide -> TemprIncrease--- \n"+"Tot_T: "+ (temp2.t - thermovalforOpenedWindow) + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						end
+					
+					transition -> TemprDecide
+					event temp2:get_sensor?temprature_sum
+					action do
+						total_room_temp = (temp2.t)
 					end
 					
 				}
@@ -603,41 +634,53 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				state TemprIncrease{ // Invariant: Switch is ON and temperature should increase
 				
 					transition -> TemprIncrease 
-					event temp:get_sensor?temprature_sum
-					guard (temp.t - thermovalforOpenedWindow)<tmrature // it should keep increasing until well above the desired temperature
+					event temp:get_sensor?temperature
+					guard (total_room_temp-thermovalforOpenedWindow <= (tmrature + 1)) // it should keep increasing until well above the desired temperature
 					action do
-						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
-						//request_actuator!SwitchOn(temp.id)
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp.t
+							end
+						i=i+1
+						end
 						if(tmrature >=10 and tmrature <=30)do
-						i=0
-						while (i<last_thermo) do
-							request_actuator!SwitchOn(thermometers[i])
-							i=i+1
+							if(magneticSensorval[temp.id]!=windowOpened or (temp.t < tmrature - 7	) as Boolean)do request_actuator!SwitchOn(temp.id) end
 						end
-						end
-						else do
-							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
-						end
-						print("---TemprIncrease -> TemprIncrease--- \n"+"Tot_T: "+ temp.t + "\n" + "Action: Switch on all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+							else do
+								human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
+							end
+							
 					end
 					
 					transition -> TemprDecrease
-					event temp2:get_sensor?temprature_sum
-					guard (temp2.t - thermovalforOpenedWindow)>=tmrature 
+					event temp2:get_sensor?temperature
+					guard (total_room_temp-thermovalforOpenedWindow > (tmrature + 1)) 
 					action do
-						//request_actuator!SwitchOff(temp2.id)
-						// switch off all devices
-						if(tmrature >=10 and tmrature <=30)do
-						i=0
-						while (i<last_thermo) do
-							request_actuator!SwitchOff(thermometers[i])
-							i=i+1
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp2.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp2.t
+							end
+						i=i+1
 						end
+						if(tmrature >=10 and tmrature <=30)do
+							request_actuator!SwitchOff(temp2.id)
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprIncrease -> TemprDecrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						
+					end
+					
+					transition -> TemprIncrease
+					event temp2:get_sensor?temprature_sum
+					action do
+						total_room_temp = (temp2.t)
 					end
 					
 				}
@@ -645,43 +688,54 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				state TemprDecrease{ // Invariant: Switch is OFF and temperature should decrease
 				
 					transition-> TemprDecrease
-					event temp:get_sensor?temprature_sum
-					guard (temp.t - thermovalforOpenedWindow) >= tmrature // it should keep decreasing until well below the desired temperature
+					event temp:get_sensor?temperature
+					guard (total_room_temp-thermovalforOpenedWindow >= (tmrature - 1))// it should keep decreasing until well below the desired temperature
 					action do
-						// TRACING to follow thermostat print("TempDecrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n")
-						//request_actuator!SwitchOff(temp.id)
-						// switch off all devices
-						if(tmrature >=10 and tmrature <=30)do
-						i=0
-						while (i<last_thermo) do
-							request_actuator!SwitchOff(thermometers[i])
-							i=i+1
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp.t
+							end
+						i=i+1
 						end
+						if(tmrature >=10 and tmrature <=30)do
+							request_actuator!SwitchOff(temp.id)
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecrease -> TemprDecrease--- \n"+"Tot_T: "+ temp.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						
 					end
 					
 					transition -> TemprIncrease
-					event temp2:get_sensor?temprature_sum
-					guard (temp2.t - thermovalforOpenedWindow)<tmrature
+					event temp2:get_sensor?temperature
+					guard total_room_temp-thermovalforOpenedWindow < (tmrature - 1)
 					action do
-						//request_actuator!SwitchOn(temp2.id)
-						if(tmrature >=10 and tmrature <=30)do
-						i=0
-						while (i<last_thermo) do
-							request_actuator!SwitchOn(thermometers[i])
-							i=i+1
+						i = 0
+						found = false
+						while (i<last_thermo and (not found)) do
+							if (temp2.id==thermometers[i]) do
+								found=true 
+								thermoval[i] = temp2.t
+							end
+						i=i+1
 						end
+						if(tmrature >=10 and tmrature <=30)do
+							if(magneticSensorval[temp2.id]!=windowOpened or (temp2.t < tmrature - 7	) as Boolean)do request_actuator!SwitchOn(temp2.id) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecrease -> TemprIncrease--- \n"+"Tot_T: "+ temp2.t + "\n" + "Action: Switch off all \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						
 					end
 					
+					transition -> TemprDecrease
+					event temp2:get_sensor?temprature_sum
+					action do
+						total_room_temp = (temp2.t)
+					end
 				}
 
 				
@@ -691,12 +745,16 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				if(tmrature >=10 and tmrature <=30)do
 					i = 0
 					found = false
-					print("thermovalforOpenedWindow: "+thermovalforOpenedWindow+"\n")
 					while (i<last_thermo and (not found)) do
 						if (mg_sensor.mgid==thermometers[i]) do
 							found=true 
-							thermovalforOpenedWindow = thermovalforOpenedWindow + thermoval[i]
+							thermovalforOpenedWindow = thermovalforOpenedWindow + thermoval[i]	
 						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowOpened	
+						end
+						
 					i=i+1
 					end
 						
@@ -705,7 +763,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 					end
-						print("window opened received")
+						
 				end
 				
 				transition -> WindowShut
@@ -714,11 +772,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				if(tmrature >=10 and tmrature <=30)do
 					i = 0
 					found = false
-					print("thermovalforOpenedWindow: "+thermovalforOpenedWindow+"\n")
 					while (i<last_thermo and (not found)) do
 						if (mg_sensor.mgid==thermometers[i]) do
 							found=true 
 							thermovalforOpenedWindow = thermovalforOpenedWindow - thermoval[i]
+						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
 					end
@@ -728,8 +789,34 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("window shut received")
+						
 				end
+				
+				transition -> DoorLocked
+				event door:get_doorLock?DoorLocked
+				action do 
+					i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (magneticSensorval[i]==windowOpened) do
+						found=true // trick to terminate while loop
+						request_alarm_beep!TurnBeepOn(door.dlid)
+					end
+					i=i+1
+				end
+				end
+				
+				transition -> DoorOpened
+				event door:get_doorLock?DoorOpened
+				action do 
+					request_alarm_beep!TurnBeepOff(door.dlid)
+				end
+				
+				transition -> DoorShut
+				event door:get_doorLock?DoorShut
+				action do
+					request_alarm_beep!TurnBeepOff(door.dlid)
+				end	
 				
 				transition -> On
 				event swon:human_input?SwitchOn
@@ -741,6 +828,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
 				end 
+				
 				transition -> Off
 				event swoff:human_input?SwitchOff
 				action do
@@ -751,6 +839,13 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
 				end 
+				
+				transition -> TurnAlarmOff
+				event swoff:human_input?TurnAlarmOff
+				action do
+					request_alarm_beep!TurnAlarmOff(swoff.dlid)
+				end 
+				
 				transition -> Thermostat
 				event set_temp:human_input?set_temperature
 				action do
@@ -758,44 +853,71 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				end
 			} // end Thermostat
 			
-			
 			state WindowShut{
 				transition -> WindowOpened
 				event mg_sensor:get_mgSensor?WindowOpened
 				action do
 				if(tmrature >=10 and tmrature <=30)do
+					i=0
+					found = false
+					while (i<last_thermo and (not found)) do
+						if (mg_sensor.mgid==thermometers[i]) do
+							found=true 
+							thermovalforOpenedWindow = thermovalforOpenedWindow + thermoval[i]	
+						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowOpened	
+						end
+					i=i+1
+					end
+				
 						request_actuator!SwitchOff(mg_sensor.mgid)
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("window shut received")
+						
 				end
 				
 				transition -> WindowShut
 				event mg_sensor:get_mgSensor?WindowShut
 				action do
 				if(tmrature >=10 and tmrature <=30)do
+				
+					i=0
+					found = false
+					while (i<last_thermo and (not found)) do
+						if (mg_sensor.mgid==thermometers[i]) do
+							found=true 
+							thermovalforOpenedWindow = thermovalforOpenedWindow - thermoval[i]	
+						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowShut	
+						end
+					i=i+1
+					end
+				
 						request_actuator!SwitchOn(mg_sensor.mgid)
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("window shut received")
+						
 				end
 				
 				transition -> Thermostat
 				event temp:get_sensor?temperature
-				guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
+				//guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
 					action do
 					if(tmrature >=10 and tmrature <=30)do
-						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
-						request_actuator!SwitchOn(temp.id)
+						if(temp.t<=tmrature-7) do request_actuator!SwitchOn(temp.id) end	
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecrease -> TemprIncrease--- \n"+"T" + temp.id + ": "+ temp.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						
 					end
 			}
 			
@@ -805,11 +927,24 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 				if(tmrature >=10 and tmrature <=30)do
 						request_actuator!SwitchOff(mg_sensor.mgid)
+						
+						i=0
+					found = false
+					while (i<last_thermo and (not found)) do
+						if (mg_sensor.mgid==thermometers[i]) do
+							found=true 
+							thermovalforOpenedWindow = thermovalforOpenedWindow + thermoval[i]	
+						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowOpened	
+						end
+					i=i+1
+					end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("window shut received")
 				end
 				
 				transition -> WindowShut
@@ -817,27 +952,165 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 				if(tmrature >=10 and tmrature <=30)do
 						request_actuator!SwitchOn(mg_sensor.mgid)
+						
+						i=0
+					found = false
+					while (i<last_thermo and (not found)) do
+						if (mg_sensor.mgid==thermometers[i]) do
+							found=true 
+							thermovalforOpenedWindow = thermovalforOpenedWindow - thermoval[i]	
+						end
+						
+						if (i < last_mgSensor and found) do
+							magneticSensorval[i]=windowShut	
+						end
+					i=i+1
+					end
+						
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("window shut received")
+						
 				end
 				
 				transition -> Thermostat
 				event temp:get_sensor?temperature
-				guard temp.t<=tmrature-7 // it should keep increasing until well above the desired temperature
+				//guard  // it should keep increasing until well above the desired temperature
 					action do
 					if(tmrature >=10 and tmrature <=30)do
-						// TRACING to follow thermostat print("TempIncrease: Observed=") print(temp.t) print(" Desired ") print(tmrature) print("\n") 
-						request_actuator!SwitchOn(temp.id)
+						if(temp.t<=tmrature-7) do request_actuator!SwitchOn(temp.id) end					
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
 						end
-						print("---TemprDecrease -> TemprIncrease--- \n"+"T" + temp.id + ": "+ temp.t + "\n" + "Action: Switch on \n DesiredTemp:"+tmrature + "\n last_thermo: " + last_thermo +"\n\n")
+						
 					end
 			}	
+			
+			state DoorLocked{
+				transition -> DoorLocked
+				event door:get_doorLock?DoorLocked
+				action do 
+					i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (magneticSensorval[i]==windowOpened) do
+						found=true // trick to terminate while loop
+						request_alarm_beep!TurnBeepOn(door.dlid)
+					end
+					i=i+1
+				end
+				end
+				
+				
+				transition -> DoorOpened
+				event door:get_doorLock?DoorOpened
+				action do 
+				request_alarm_beep!TurnBeepOff(door.dlid)
+				end
+				
+				transition -> Thermostat
+				event door:get_doorLock?DoorShut
+				action do
+					request_alarm_beep!TurnBeepOff(door.dlid)
+				end	
+				
+				transition -> Thermostat
+				event temp:get_sensor?temperature
+					action do
+					if(tmrature >=10 and tmrature <=30)do
+						if(temp.t<=tmrature-7) do request_actuator!SwitchOn(temp.id) end					
+						end
+						else do
+							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
+						end
+						
+					end
+			}
+			
+			state DoorOpened{
+				transition -> DoorLocked
+				event door:get_doorLock?DoorLocked
+				action do 
+					i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (magneticSensorval[i]==windowOpened) do
+						found=true // trick to terminate while loop
+						request_alarm_beep!TurnBeepOn(door.dlid)
+					end
+					i=i+1
+				end
+				end
+				
+				
+				transition -> DoorOpened
+				event door:get_doorLock?DoorOpened
+				action do 
+				request_alarm_beep!TurnBeepOff(door.dlid)
+				end
+				
+				transition -> Thermostat
+				event door:get_doorLock?DoorShut
+				action do
+					request_alarm_beep!TurnBeepOff(door.dlid)
+				end	
+				
+				transition -> Thermostat
+				event temp:get_sensor?temperature
+					action do
+					if(tmrature >=10 and tmrature <=30)do
+						if(temp.t<=tmrature-7) do request_actuator!SwitchOn(temp.id) end					
+						end
+						else do
+							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
+						end
+						
+					end
+			}
+			
+			state DoorShut{
+				transition -> DoorLocked
+				event door:get_doorLock?DoorLocked
+				action do 
+					i=0
+				found = false
+				while (i<last_mgSensor and (not found)) do
+					if (magneticSensorval[i]==windowOpened) do
+						found=true // trick to terminate while loop
+						request_alarm_beep!TurnBeepOn(door.dlid)
+					end
+					i=i+1
+				end
+				end
+				
+				
+				transition -> DoorOpened
+				event door:get_doorLock?DoorOpened
+				action do 
+				request_alarm_beep!TurnBeepOff(door.dlid)
+				end
+				
+				transition -> Thermostat
+				event door:get_doorLock?DoorShut
+				action do
+					request_alarm_beep!TurnBeepOff(door.dlid)
+				end	
+				
+				transition -> Thermostat
+				event temp:get_sensor?temperature
+				//guard  // it should keep increasing until well above the desired temperature
+					action do
+					if(tmrature >=10 and tmrature <=30)do
+						if(temp.t<=tmrature-7) do request_actuator!SwitchOn(temp.id) end					
+						end
+						else do
+							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
+						end
+						
+					end
+			}
 			
 			state On {
 				transition -> Off
@@ -892,6 +1165,20 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					tmrature = set_temp.t
 				end	
+			}
+			
+			state TurnAlarmOff{
+				transition -> TurnAlarmOff
+				event swoff:human_input?TurnAlarmOff
+				action do
+					request_alarm_beep!TurnAlarmOff(swoff.dlid)
+				end 
+				
+				transition -> Thermostat
+				event temp:get_sensor?temperature
+				action do
+					
+				end
 			}
 			
 			// Transitions of the composite state Running
