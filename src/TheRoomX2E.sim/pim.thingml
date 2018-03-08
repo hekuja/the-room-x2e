@@ -780,7 +780,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
-						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n")
+						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
 					end
 				}
 
@@ -831,7 +831,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						end
 						
 						if (i < last_mgSensor and found) do
-							av_room_temp = total_room_temp/(last_thermo+count_of_open_windows)
+							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
@@ -955,7 +955,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						end
 						
 						if (i < last_mgSensor and found) do
-							av_room_temp = total_room_temp/(last_thermo+count_of_open_windows)
+							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
@@ -1028,7 +1028,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						end
 						
 						if (i < last_mgSensor and found) do
-							av_room_temp = total_room_temp/(last_thermo+count_of_open_windows)
+							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
