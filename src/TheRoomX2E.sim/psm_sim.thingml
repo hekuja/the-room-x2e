@@ -172,7 +172,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 					id_s=thermometers[i]
 					temp_s=thermoval[i]	
 					// SIMULATION: if the temperature is outside reasonable range, do not return temperature. Simulates thermometer error
-					if (temp_sum >= -40 and temp_sum < 50) do		
+					if (temp_s >= -40 and temp_s < 50) do		
 						provide_val!temperature(id_s,thermotext[i],temp_s)
 						show_values!temperature(id_s,thermotext[i],temp_s)
 						temp_sum = temp_sum + thermoval[i]
