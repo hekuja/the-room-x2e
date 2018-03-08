@@ -69,6 +69,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property last_mgSensor:Integer = 0 
 	property windowShut:Integer =1
 	property windowOpened:Integer =2
+	property doorLocked:Boolean = true
 	
 	
 	statechart PIM_behavior init Build {
@@ -752,7 +753,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						end
 						
 						if (i < last_mgSensor and found) do
-							magneticSensorval[i]=windowOpened	
+							magneticSensorval[i]=windowOpened
+							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
 						
 					i=i+1
@@ -803,6 +805,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						request_alarm_beep!TurnBeepOn(door.dlid)
 					end
 					i=i+1
+					doorLocked = true
 				end
 				end
 				
@@ -810,12 +813,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event door:get_doorLock?DoorOpened
 				action do 
 					request_alarm_beep!TurnBeepOff(door.dlid)
+					doorLocked = false
 				end
 				
 				transition -> DoorShut
 				event door:get_doorLock?DoorShut
 				action do
 					request_alarm_beep!TurnBeepOff(door.dlid)
+					doorLocked = false
 				end	
 				
 				transition -> On
@@ -868,6 +873,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						
 						if (i < last_mgSensor and found) do
 							magneticSensorval[i]=windowOpened	
+							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
 					i=i+1
 					end
@@ -938,6 +944,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						
 						if (i < last_mgSensor and found) do
 							magneticSensorval[i]=windowOpened	
+							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
 					i=i+1
 					end
@@ -1000,6 +1007,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						request_alarm_beep!TurnBeepOn(door.dlid)
 					end
 					i=i+1
+					doorLocked = true
 				end
 				end
 				
@@ -1008,12 +1016,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event door:get_doorLock?DoorOpened
 				action do 
 				request_alarm_beep!TurnBeepOff(door.dlid)
+				doorLocked = false
 				end
 				
-				transition -> Thermostat
+				transition -> DoorShut
 				event door:get_doorLock?DoorShut
 				action do
 					request_alarm_beep!TurnBeepOff(door.dlid)
+					doorLocked = false
 				end	
 				
 				transition -> Thermostat
@@ -1041,6 +1051,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						request_alarm_beep!TurnBeepOn(door.dlid)
 					end
 					i=i+1
+					doorLocked = true
 				end
 				end
 				
@@ -1049,12 +1060,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event door:get_doorLock?DoorOpened
 				action do 
 				request_alarm_beep!TurnBeepOff(door.dlid)
+				doorLocked = false
 				end
 				
-				transition -> Thermostat
+				transition -> DoorShut
 				event door:get_doorLock?DoorShut
 				action do
 					request_alarm_beep!TurnBeepOff(door.dlid)
+					doorLocked = false
 				end	
 				
 				transition -> Thermostat
@@ -1081,6 +1094,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						found=true // trick to terminate while loop
 						request_alarm_beep!TurnBeepOn(door.dlid)
 					end
+					doorLocked = true
 					i=i+1
 				end
 				end
@@ -1090,12 +1104,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event door:get_doorLock?DoorOpened
 				action do 
 				request_alarm_beep!TurnBeepOff(door.dlid)
+				doorLocked = false
 				end
 				
-				transition -> Thermostat
+				transition -> DoorShut
 				event door:get_doorLock?DoorShut
 				action do
 					request_alarm_beep!TurnBeepOff(door.dlid)
+					doorLocked = false
 				end	
 				
 				transition -> Thermostat

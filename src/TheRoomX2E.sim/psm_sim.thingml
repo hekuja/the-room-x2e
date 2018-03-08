@@ -414,7 +414,7 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 	property doorOpened:Integer = 1
 	property doorShut:Integer = 2
 	property doorLocked:Integer = 3
-	property poll_intrvl:Integer = 5000// 5 sec
+	property windowCouldBeOpen:Boolean=false
 	
 	statechart behaviorDoorLock init Init{
 		state Init {
@@ -426,13 +426,6 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 		}
 		
 		state Idle {
-			
-			transition -> Idle
-			event timout:timer?timer_timeout 
-			action do
-				show_val!AlarmOn(last_dlSensor)
-				print("Timer has run \n")
-			end
 			
 			transition -> Idle
 			event addLock:require_val?add_doorLockSensor
@@ -464,25 +457,25 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 					doorLockval[i-1]=doorOpened
 					provide_val!DoorOpened(id_dl)
 					show_val!DoorOpened(id_dl)
-					show_val!BeepOff(id_dl)
+					//if(windowCouldBeOpen == true)do show_val!BeepOff(id_dl) end
 				end
 				else if (found and ( doorLockval[i-1]==doorOpened) as Boolean) do show_val!DoorIsAlreadyOpen(id_dl) end
-				timer!timer_cancel() 
+				
 			end
 			//door alarm transition 
 			transition -> Idle
 			event locked_door:require_alarm_beel_val?TurnAlarmOn
 			action do
 				id_dl=locked_door.dlid
-				show_val!AlarmOn(id_dl)
-				
+				 show_val!AlarmOn(id_dl)
+				windowCouldBeOpen = true
 			end
 			transition -> Idle
 			event locked_door:require_alarm_beel_val?TurnAlarmOff
 			action do
 				id_dl=locked_door.dlid
-				show_val!AlarmOff(id_dl)
-				timer!timer_cancel()
+				 show_val!AlarmOff(id_dl) 
+				windowCouldBeOpen = false
 			end
 			
 			transition -> Idle
@@ -490,14 +483,16 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 			action do
 				id_dl=locked_door.dlid
 				show_val!BeepOn(id_dl)
-				timer!timer_start(poll_intrvl)
+				if(windowCouldBeOpen == false)do show_val!BeepOn(id_dl) end
+				windowCouldBeOpen = true
 			end
 			transition -> Idle
 			event locked_door:require_alarm_beel_val?TurnBeepOff
 			action do
 				id_dl=locked_door.dlid
 				show_val!BeepOff(id_dl)
-				timer!timer_cancel()
+				if(windowCouldBeOpen == true)do show_val!BeepOff(id_dl) end
+				windowCouldBeOpen = false
 			end
 			
 			//end alarm
@@ -519,10 +514,8 @@ thing DoorLock includes PSM_Msg, GeneralMsg, OpenedShutLockedMsg,TimerClient{
 					doorLockval[i-1]=doorShut
 					provide_val!DoorShut(id_dl)
 					show_val!DoorShut(id_dl)
-					//show_val!BeepOff(id_dl)
 				end
 				else if (found and ( doorLockval[i-1]==doorShut) as Boolean) do show_val!DoorIsAlreadyShut(id_dl) end
-				//timer!timer_start(poll_intrvl)
 			end
 			
 			transition -> Idle
