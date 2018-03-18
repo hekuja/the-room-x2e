@@ -40,7 +40,21 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 		sends initialize
 	}
 	
+	required port to_T2 {
+		sends initialize
+	}
+	required port to_T3 {
+		sends initialize
+	}
+	
 	required port to_onoff1 {
+		sends initialize
+	}
+	
+	required port to_onoff2 {
+		sends initialize
+	}
+	required port to_onoff3 {
 		sends initialize
 	}
 	
@@ -51,6 +65,11 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	required port to_mg1 {
 		sends initialize
 	}
+required port to_mg2 {
+		sends initialize
+	}
+
+
 
 	required port to_gdg {
 		sends sensorinfo, deviceinfo
