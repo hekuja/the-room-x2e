@@ -175,7 +175,9 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 	property found:Boolean // temporary - true when item found in loop
 	property temp_sum:Double = 0
 	
-	property s:Sensor // runner Sensor 
+	property s:Sensor // runner Sensor
+	
+	property d:Device // temporary device  
 	
 	statechart behaviorThermometerSet init Init {
 		state Init {
@@ -194,7 +196,7 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				i=0
 				while (i<last_thermo)do
 					id_s=thermometers[i]
-					s= ``&ts&`.getSensor(`&id_s& `)` 
+					s= ``&ts&`.getSensor(`&id_s&`)` 
 					if (not (s==`null`)) // TODO find a way in ThingML to check existence?
 					do
 						sensortype=``&s&`.getDataTypes()`
@@ -202,12 +204,17 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 							temp_s=``&s&`.getTemperature()`			
 							provide_val!temperature(id_s,thermotext[i],temp_s)
 							show_values!temperature(id_s,thermotext[i],temp_s)
-							temp_sum = temp_sum + thermoval[i]
-						
-							if(i==(last_thermo-1)) do 
-								provide_val!temprature_sum(temp_sum)
-							end
+							temp_sum = temp_sum + temp_s
 						end
+					end
+					else do
+							temp_s=thermoval[i]		
+							provide_val!temperature(id_s,thermotext[i],temp_s)
+							show_values!temperature(id_s,thermotext[i],temp_s)
+							temp_sum = temp_sum + thermoval[i]
+					end
+					if(i==(last_thermo-1)) do 
+						provide_val!temprature_sum(temp_sum)
 					end
 					i=i+1
 				end 
@@ -224,18 +231,27 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 			event addt:require_val?add_thermometer
 			action do	
 				id_s=addt.id
-				s= ``&ts&`.getSensor(`&id_s& `)`
-				sensortype=``&s&`.getDataTypes()`
-				if (sensortype==1 or sensortype==3) do
+				s= ``&ts&`.getSensor(`&id_s&`)`
+				if (not (s==`null`)) do
+					sensortype=``&s&`.getDataTypes()`
+					if (sensortype==1 or sensortype==3) do
+						thermometers[last_thermo]=id_s
+						thermotext[last_thermo]=addt.txt
+						last_thermo = last_thermo+1
+						timer!timer_start(poll_intrvl)
+					end
+				end
+				else do
 					thermometers[last_thermo]=id_s
 					thermotext[last_thermo]=addt.txt
-					//thermoval[last_thermo]= 10 // just a default temperature
+					thermoval[last_thermo]= 10 // just a default temperature
 					last_thermo = last_thermo+1
 					timer!timer_start(poll_intrvl)
-					
 				end
-					println("thermometer added")
+				println("added default thermo")
 			end
+			
+			
 			// SIMULATION receiving temperature from simulation interface
 			transition -> Idle
 			event put_temp:get_values?temperature
@@ -243,10 +259,16 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				id_s=put_temp.id
 				temp_sum = 0
 				i=0
-				s= ``&ts&`.getSensor(`&id_s& `)`
-				sensortype=``&s&`.getDataTypes()`
+				s= ``&ts&`.getSensor(`&id_s& `)`				
 				while (i<last_thermo) do
-					if (id_s==thermometers[i] and (sensortype==1 or sensortype==3)) do
+					if (not (s==`null`)) do
+						sensortype=``&s&`.getDataTypes()`
+						if((sensortype==1 or sensortype==3)) do
+							temp_s=``&s&`.getTemperature()`		
+							temp_sum = temp_sum + temp_s
+						end
+					end
+					else if (id_s==thermometers[i] and (s==`null`)) do
 						thermoval[i]=put_temp.t	
 						temp_sum = temp_sum + thermoval[i]
 					end
@@ -277,7 +299,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 	
 	property i:Integer // runner index in list
 	property did:Integer // temporary device id
-	// property d:Device // temporary device removed at SIMULATION
+	property d:Device // temporary device removed at SIMULATION
 	property mth:Long // temporary methods
 	property found:Boolean // temporary boolean used in while loop
 	property status:Long // of either ON or OFF not very reliable since no real result is returned
@@ -296,8 +318,19 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 			action do
 				did=add_dev.did
 				
-				onoffswitches[last_onoff]=did
-				last_onoff = last_onoff+1
+				d= ``&ts&`.getDevice(`&did&`)`
+				if (not (d==`null`)) do
+					mth =``&d&`.getMethods()`
+					if (mth==3) do
+						onoffswitches[last_onoff]=did
+						last_onoff = last_onoff+1
+					end
+				end
+				else do 
+					onoffswitches[last_onoff]=did
+					last_onoff = last_onoff+1
+				end
+				
 			end
 			transition -> Idle
 			event swon: require_val?SwitchOn
@@ -311,11 +344,27 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 					end
 					i=i+1
 				end
+				
 				if (found) do
-					poweron[i-1]=true // ON by SIMULATION
-					show_val!SwitchOn(did)
-					// TODO remove when tested print("SIMULATION: Power ON on device #") print(did) print("\n")
+					d= ``&ts&`.getDevice(`&did&`)`
+					if ((not (d==`null`))) do
+						mth =``&d&`.getMethods()`
+						if (mth==3) do
+							`int dident=```&did&`;`
+							`int x= `&ts&`.sendCmd(dident,"ON");`
+							status = `x`
+							// ``&status& `=` ``&ts&`.sendCmd(``` &did& `, "ON" );`  TODO does not compile,yet
+							// status =``&ts&`.sendCmd(`& did &`, "ON" )`
+						end
+						// TODO We need an error outcome if it is the wrong type as well
+					end
+					else do
+						poweron[i-1]=true // ON by SIMULATION
+						show_val!SwitchOn(did)
+						// TODO remove when tested print("SIMULATION: Power ON on device #") print(did) print("\n")
+					end
 				end
+				
 			end
 			transition -> Idle
 			event swoff: require_val?SwitchOff
@@ -330,9 +379,22 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 					i=i+1
 				end
 				if (found) do
-					poweron[i-1]=false // OFF by SIMULATION
-					show_val!SwitchOff(did)
-					// TODO remove when tested print("SIMULATION: Power OFF on device #") print(did) print("\n")
+					d= ``&ts&`.getDevice(`&did&`)`
+					if (not (d==`null`)) do
+						mth =``&d&`.getMethods()`
+						if (mth==3) do
+							`int dident=```&did&`;`
+							`int x= `&ts&`.sendCmd(dident,"OFF");`
+							status = `x`
+							// ``&status& `=` ``&ts&`.sendCmd(``` &did& `, "OFF" );`  TODO does not compile,yet
+						end
+						// TODO We need an error outcome if it is the wrong type as well
+					end
+					else do 
+						poweron[i-1]=false // OFF by SIMULATION
+						show_val!SwitchOff(did)
+						// TODO remove when tested print("SIMULATION: Power OFF on device #") print(did) print("\n")
+					end
 				end
 			end
 			

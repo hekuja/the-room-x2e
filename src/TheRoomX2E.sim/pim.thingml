@@ -54,20 +54,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property switch_id:Integer // the single on-off switch identifier
 	property doorLock_id:Integer
 	property mg_sensor_id:Integer
-	property thermometers:Integer[25] //for book keeping
-	property thermoval:Double[25] //for book keeping
+	property thermometers:Integer[2500] //for book keeping
+	property thermoval:Double[2500] //for book keeping
 	property total_room_temp:Double = 0
 	property av_room_temp:Double =0
 	property count_of_open_windows:Integer =0
 	property last_thermo:Integer = 0 // number of thermometers in the set
 	property i:Integer = 0 
-	property h:Integer =0
 	property found:Boolean 
-	property thereCouldBeAnOpenWindow:Boolean
 	
 	// for book keeping	around the magnetic sensors
-	property magneticSensors:Integer[25] 
-	property magneticSensorval:Integer[25]
+	property magneticSensors:Integer[2500] 
+	property magneticSensorval:Integer[2500]
 	property last_mgSensor:Integer = 0 
 	property windowShut:Integer =1
 	property windowOpened:Integer =2
@@ -81,10 +79,10 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				transition -> AddThermo2
 				event addt:human_input?add_thermometer
 				action do
-					thermo_id=151//addt.id
-					request_sensor!add_thermometer(thermo_id,"RoomTemp")
-					thermometers[last_thermo]=thermo_id
-					//thermoval[last_thermo] = 10
+					thermo_id=addt.id
+				 	request_sensor!add_thermometer(thermo_id,addt.txt)
+				 	thermometers[last_thermo]=thermo_id
+					thermoval[last_thermo] = 10
 					total_room_temp = total_room_temp +thermoval[last_thermo]
 					last_thermo = last_thermo+1
 					av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
