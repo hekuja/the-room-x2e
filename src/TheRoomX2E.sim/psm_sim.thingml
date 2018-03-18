@@ -30,6 +30,11 @@ thing fragment PSMSensorSingle includes PSMSensorSet {
 // We need a way to initialize the Tellstick etc
 // This defines the central kick-down concept. The maven_dep stuff refers to an installed Maven project
 thing TellstickManager includes PSM_Msg, GeneralMsg
+@maven_dep "<dependency>
+<groupId>net.juppi</groupId>
+<artifactId>jstick-api</artifactId>
+<version>1.7</version>
+</dependency>"
 { 	/* Ports may be defined here */
 	required port to_T1 {
 		sends initialize
@@ -72,40 +77,57 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	property devicelastcmd:String
 	property devicelastval:Long 
 	
+	property sensor_list:Sensor[25] // removed at SIMULATION
+	property device_list:Device[25] // removed at SIMULATION
+	property s:Sensor // temporary Sensor removed at SIMULATION
+	property d:Device // temporary Device removed at SIMULATION
+	
 	function observe_sensors() do
 		// Now we send to PIM all the Sensor gadgets which are managed by that Tellstick
-		
-		// SIMULATED VERSION: Hardcoded nonsense values, only the signal is considered useful
-		print("SIMULATION: Observe_sensors\n")
-		model="model"
-		proto="proto"
-		sid=0
-		dataTypes=0
-		temperature=100
-		humidity=27
-		timeStamp=99999		
-		to_gdg!sensorinfo(model,proto,sid,dataTypes,temperature,humidity,timeStamp)
+		``&sensor_list& `=` ``&ts&`.getSensors().toArray(```&sensor_list& `);` // kick-down to tellstick
+		i=0
+		while (i<25)do
+			s=sensor_list[i]
+			if (not (s==`null`)) // TODO find a way in ThingML to check existence?
+			do
+				model=``&s&`.getModel()`
+				proto=``&s&`.getProtocol()`
+				sid=``&s&`.getId()`
+				dataTypes=``&s&`.getDataTypes()`
+				temperature=``&s&`.getTemperature()`
+				humidity=``&s&`.getHumidity()`
+				timeStamp=``&s&`.getTimeStamp()`		
+				to_gdg!sensorinfo(model,proto,sid,dataTypes,temperature,humidity,timeStamp)
+			end
+			i=i+1
+		end
 	end
 	
 	function observe_devices() do
 		// Now we send to PIM all the Devices actuators which are managed by that Tellstick
-		// SIMULATED VERSION: Hardcoded nonsense values, only the signal is considered useful
-		print("SIMULATION: Observe_devices\n")
-		did = 0
-		name = "name"
-		model= "model"
-		proto = "proto"
-		devicetype = "devicetype"
-		devicemethods = 5
-		devicelastcmd = "lastcommand"
-		devicelastval = 999
-		to_gdg!deviceinfo(did,name,model,proto,devicetype,devicemethods,devicelastcmd,devicelastval)
-		
+		``&device_list& `=` ``&ts&`.getDevices().toArray(```&device_list& `);` // kick-down to tellstick
+		i=0
+		while (i<25) do
+			d=device_list[i]
+			if (not (d==`null`)) // TODO not very elegant way to walk through, should use numberofdevices
+			do
+				did = ``&d&`.getId()`
+				name = ``&d&`.getName()`
+				model= ``&d&`.getModel()`
+				proto = ``&d&`.getProto()`
+				devicetype = ``&d&`.getType()`
+				devicemethods = ``&d&`.getMethods()`
+				devicelastcmd = ``&d&`.getLastCmd()`
+				devicelastval = ``&d&`.getLastValue()`
+				to_gdg!deviceinfo(did,name,model,proto,devicetype,devicemethods,devicelastcmd,devicelastval)
+			end
+			i=i+1
+		end
 	end
 
 	function initialize() do
 	// kick-down initialization
-		ts = "Tellstick Duo" // SIMULATION	
+		ts = `new net.jstick.api.Tellstick()` // NOTE: Full name of the kick-down class
 
 		to_T1!initialize(ts)
 		to_onoff1!initialize(ts)
@@ -153,6 +175,8 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 	property found:Boolean // temporary - true when item found in loop
 	property temp_sum:Double = 0
 	
+	property s:Sensor // runner Sensor 
+	
 	statechart behaviorThermometerSet init Init {
 		state Init {
 			transition -> Idle
@@ -170,34 +194,47 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				i=0
 				while (i<last_thermo)do
 					id_s=thermometers[i]
-					temp_s=thermoval[i]	
-					// SIMULATION: if the temperature is outside reasonable range, do not return temperature. Simulates thermometer error
-					if (temp_s >= -40 and temp_s < 50) do		
-						provide_val!temperature(id_s,thermotext[i],temp_s)
-						show_values!temperature(id_s,thermotext[i],temp_s)
-						temp_sum = temp_sum + thermoval[i]
+					s= ``&ts&`.getSensor(`&id_s& `)` 
+					if (not (s==`null`)) // TODO find a way in ThingML to check existence?
+					do
+						sensortype=``&s&`.getDataTypes()`
+						if (sensortype==1 or sensortype==3) do
+							temp_s=``&s&`.getTemperature()`			
+							provide_val!temperature(id_s,thermotext[i],temp_s)
+							show_values!temperature(id_s,thermotext[i],temp_s)
+							temp_sum = temp_sum + thermoval[i]
 						
-						if(i==(last_thermo-1)) do 
-							provide_val!temprature_sum(temp_sum)
+							if(i==(last_thermo-1)) do 
+								provide_val!temprature_sum(temp_sum)
+							end
 						end
 					end
 					i=i+1
 				end 
 				timer!timer_start(poll_intrvl) // restarting the polling cycle
 			end
+			
 			transition -> Idle
 			event pollintrvl:require_val?set_polling_interval
 			action do
 				poll_intrvl = pollintrvl.intrvl
 			end
+			
 			transition -> Idle
 			event addt:require_val?add_thermometer
-			action do				
+			action do	
 				id_s=addt.id
-				thermometers[last_thermo]=id_s
-				thermotext[last_thermo]=addt.txt
-				thermoval[last_thermo]= 10 // just a default temperature
-				last_thermo = last_thermo+1
+				s= ``&ts&`.getSensor(`&id_s& `)`
+				sensortype=``&s&`.getDataTypes()`
+				if (sensortype==1 or sensortype==3) do
+					thermometers[last_thermo]=id_s
+					thermotext[last_thermo]=addt.txt
+					//thermoval[last_thermo]= 10 // just a default temperature
+					last_thermo = last_thermo+1
+					timer!timer_start(poll_intrvl)
+					
+				end
+					println("thermometer added")
 			end
 			// SIMULATION receiving temperature from simulation interface
 			transition -> Idle
@@ -206,8 +243,10 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 				id_s=put_temp.id
 				temp_sum = 0
 				i=0
+				s= ``&ts&`.getSensor(`&id_s& `)`
+				sensortype=``&s&`.getDataTypes()`
 				while (i<last_thermo) do
-					if (id_s==thermometers[i]) do
+					if (id_s==thermometers[i] and (sensortype==1 or sensortype==3)) do
 						thermoval[i]=put_temp.t	
 						temp_sum = temp_sum + thermoval[i]
 					end

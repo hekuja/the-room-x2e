@@ -76,15 +76,15 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	
 	statechart PIM_behavior init Build {
 		composite state Build init AddThermo keeps history {
-		
+			
 			state AddThermo {
 				transition -> AddThermo2
 				event addt:human_input?add_thermometer
 				action do
-					thermo_id=addt.id
-					request_sensor!add_thermometer(thermo_id,addt.txt)
+					thermo_id=151//addt.id
+					request_sensor!add_thermometer(thermo_id,"RoomTemp")
 					thermometers[last_thermo]=thermo_id
-					thermoval[last_thermo] = 10
+					//thermoval[last_thermo] = 10
 					total_room_temp = total_room_temp +thermoval[last_thermo]
 					last_thermo = last_thermo+1
 					av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
