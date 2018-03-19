@@ -67,6 +67,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 	property magneticSensors:Integer[2500] 
 	property magneticSensorval:Integer[2500]
 	property last_mgSensor:Integer = 0 
+	property last_onoff:Integer = 0 // number of onoff switches in the set 
+	property onoffswitches:Integer[2500]
 	property windowShut:Integer =1
 	property windowOpened:Integer =2
 	property doorLocked:Boolean = true
@@ -227,11 +229,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			event adddev3:human_input?add_device
 			action do
 					switch_id=adddev3.did
+					onoffswitches[last_thermo] = switch_id
+					last_onoff = last_onoff+1
 					request_actuator!add_device(switch_id)
 					human_output!prompt("Now setting up environment 2. Please thermometer for environment 2")
 				end
-			
-			
 			
 		} // end 
 		
@@ -387,6 +389,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			event adddev3:human_input?add_device
 			action do
 					switch_id=adddev3.did
+					onoffswitches[last_thermo] = switch_id
+					last_onoff = last_onoff+1
 					request_actuator!add_device(switch_id)
 					human_output!prompt("Now setting up wall without window . Please add thermometer for the wall with no window")
 				end
@@ -494,6 +498,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 			event adddev3:human_input?add_device
 			action do
 					switch_id=adddev3.did
+					onoffswitches[last_thermo] = switch_id
+					last_onoff = last_onoff+1
 					request_actuator!add_device(switch_id)
 					human_output!prompt("Now setting up door lock. Please add the door lock")
 				end
@@ -628,9 +634,9 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							request_actuator!SwitchOff(temp2.id)
-							if(magneticSensorval[i-1]==windowOpened and (temp2.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(temp2.id) end
-							else do request_actuator!SwitchOff(temp2.id) end
+							//request_actuator!SwitchOff(temp2.id)
+							if(magneticSensorval[i-1]==windowOpened and (temp2.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOff(onoffswitches[i-1]) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -653,8 +659,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							if(magneticSensorval[i-1]==windowOpened and (temp2.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(temp2.id) end
-							else do request_actuator!SwitchOn(temp2.id) end
+							if(magneticSensorval[i-1]==windowOpened and (temp2.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOn(onoffswitches[i-1]) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -668,19 +674,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecide->TemprDecide sum T:"+total_room_temp+"\n")
@@ -704,8 +709,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							if(magneticSensorval[i-1]==windowOpened and (temp.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(temp.id) end
-							else do request_actuator!SwitchOn(temp.id) end
+							if(magneticSensorval[i-1]==windowOpened and (temp.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOn(onoffswitches[i-1]) end
 							print("magneticSensorval["+ temp.id+"]!:"+magneticSensorval[temp.id]+"\n")
 						end
 							else do
@@ -729,8 +734,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							if(magneticSensorval[i-1]==windowOpened and (temp2.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(temp2.id) end
-							else do request_actuator!SwitchOff(temp2.id) end
+							if(magneticSensorval[i-1]==windowOpened and (temp2.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOff(onoffswitches[i-1]) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -743,19 +748,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprIncrease->TemprIncrease sum T:"+total_room_temp+"\n")
@@ -779,8 +783,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							if(magneticSensorval[i-1]==windowOpened and (temp.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(temp.id) end
-							else do request_actuator!SwitchOff(temp.id) end
+							if(magneticSensorval[i-1]==windowOpened and (temp.t < tmrature - 7) as Boolean)do request_actuator!SwitchOn(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOff(onoffswitches[i-1]) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -803,8 +807,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 						i=i+1
 						end
 						if(tmrature >=10 and tmrature <=30)do
-							if(magneticSensorval[i-1]==windowOpened and (temp2.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(temp2.id) end
-							else do request_actuator!SwitchOn(temp2.id) end
+							if(magneticSensorval[i-1]==windowOpened and (temp2.t > tmrature - 7) as Boolean)do request_actuator!SwitchOff(onoffswitches[i-1]) end
+							else do request_actuator!SwitchOn(onoffswitches[i-1]) end
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -817,19 +821,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -843,14 +846,14 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				if(tmrature >=10 and tmrature <=30)do
 					i = 0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true
 							count_of_open_windows = count_of_open_windows+1
 							
 						end
 						
-						if (i < last_mgSensor and found) do
+						if (found) do
 							magneticSensorval[i]=windowOpened
 							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
@@ -858,7 +861,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					i=i+1
 					end
 						
-					request_actuator!SwitchOff(mg_sensor.mgid)
+					request_actuator!SwitchOff(onoffswitches[i-1])
 					end
 					else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -872,22 +875,19 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				if(tmrature >=10 and tmrature <=30)do
 					i = 0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true 
-							//thermovalforOpenedWindow = thermovalforOpenedWindow - thermoval[i]
-							//total_room_temp = total_room_temp+thermoval[i]
 							count_of_open_windows = count_of_open_windows-1
 						end
 						
-						if (i < last_mgSensor and found) do
-							//av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
+						if (found) do
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
 					end
 				
-						request_actuator!SwitchOn(mg_sensor.mgid)
+						request_actuator!SwitchOn(onoffswitches[i-1])
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -966,20 +966,20 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				if(tmrature >=10 and tmrature <=30)do
 					i=0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true 
 							count_of_open_windows = count_of_open_windows+1
 						end
 						
-						if (i < last_mgSensor and found) do
+						if (found) do
 							magneticSensorval[i]=windowOpened
 							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
 					i=i+1
 					end
 				
-						request_actuator!SwitchOff(mg_sensor.mgid)
+						request_actuator!SwitchOff(onoffswitches[i-1])
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -994,19 +994,19 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				
 					i=0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true
 							count_of_open_windows = count_of_open_windows-1
 						end
 						
-						if (i < last_mgSensor and found) do
+						if (found) do
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
 					end
 				
-						request_actuator!SwitchOn(mg_sensor.mgid)
+						request_actuator!SwitchOn(onoffswitches[i-1])
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -1019,19 +1019,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -1044,24 +1043,23 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event mg_sensor:get_mgSensor?WindowOpened
 				action do
 				if(tmrature >=10 and tmrature <=30)do
-						request_actuator!SwitchOff(mg_sensor.mgid)
 						
 						i=0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true 
-							//total_room_temp = total_room_temp-thermoval[i]
 							count_of_open_windows = count_of_open_windows+1 	
 						end
 						
-						if (i < last_mgSensor and found) do
+						if (found) do
 							magneticSensorval[i]=windowOpened	
-							//av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 							if(doorLocked == true)do request_alarm_beep!TurnAlarmOn(1) end
 						end
 					i=i+1
 					end
+					request_actuator!SwitchOff(onoffswitches[i-1])
+						
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -1072,24 +1070,20 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				event mg_sensor:get_mgSensor?WindowShut
 				action do
 				if(tmrature >=10 and tmrature <=30)do
-						request_actuator!SwitchOn(mg_sensor.mgid)
-						
 						i=0
 					found = false
-					while (i<last_thermo and (not found)) do
-						if (mg_sensor.mgid==thermometers[i]) do
+					while (i<last_mgSensor and (not found)) do
+						if (mg_sensor.mgid==magneticSensors[i]) do
 							found=true 
-							//total_room_temp = total_room_temp+thermoval[i]
 							count_of_open_windows = count_of_open_windows-1 	
 						end
 						
-						if (i < last_mgSensor and found) do
-							//av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
+						if (found) do
 							magneticSensorval[i]=windowShut	
 						end
 					i=i+1
 					end
-						
+						request_actuator!SwitchOn(onoffswitches[i-1])
 						end
 						else do
 							human_output!prompt("INTERNAL ERROR: The comfort room temp:"+ tmrature +" is out of range")
@@ -1101,19 +1095,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -1155,19 +1148,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -1209,19 +1201,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -1263,19 +1254,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 					event temp2:get_sensor?temprature_sum
 					action do
 						i = 0
-						found = false
-						while (i<last_mgSensor and (not found)) do
-							if (magneticSensorval[i]==windowOpened) do
-								found=true
-							end
-						i=i+1
-						end
-						if(not found)do
+						if(count_of_open_windows < 1)do
 							total_room_temp = (temp2.t) 
 							av_room_temp = total_room_temp/last_thermo
 						end
 						else do 
-							total_room_temp = (temp2.t) - thermoval[i-1] 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
 							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
 						end
 						print("TemprDecrease->TemprDecrease sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
@@ -1308,6 +1298,27 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					tmrature = set_temp.t
 				end
+				
+				transition -> Thermostat
+					event temp2:get_sensor?temprature_sum
+					action do
+						i = 0
+						if(count_of_open_windows < 1)do
+							total_room_temp = (temp2.t) 
+							av_room_temp = total_room_temp/last_thermo
+						end
+						else do 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
+							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
+						end
+						print("On sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
+					end
 			}
 			state Off {
 				transition -> Off
@@ -1335,6 +1346,27 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg,OpenedShutMsg,OpenedShut
 				action do
 					tmrature = set_temp.t
 				end	
+				
+				transition -> Thermostat
+					event temp2:get_sensor?temprature_sum
+					action do
+						i = 0
+						if(count_of_open_windows < 1)do
+							total_room_temp = (temp2.t) 
+							av_room_temp = total_room_temp/last_thermo
+						end
+						else do 
+							while (i<last_mgSensor) do
+								println("mgVal for index:"+i+" is:"+magneticSensorval[i] +" and count of open windows is:"+count_of_open_windows)
+								if (magneticSensorval[i]==windowOpened) do
+									total_room_temp = (temp2.t) - thermoval[i] 
+								end
+								i=i+1
+							end
+							av_room_temp = total_room_temp/(last_thermo-count_of_open_windows)
+						end
+						print("Off sum av_T:"+av_room_temp+"\n" +"total_room_temp:"+total_room_temp+"\n")
+					end
 			}
 			
 			state TurnAlarmOff{

@@ -30,7 +30,8 @@ thing fragment PSMSensorSingle includes PSMSensorSet {
 // We need a way to initialize the Tellstick etc
 // This defines the central kick-down concept. The maven_dep stuff refers to an installed Maven project
 thing TellstickManager includes PSM_Msg, GeneralMsg
-@maven_dep "<dependency>
+@maven_dep 
+"<dependency>
 <groupId>net.juppi</groupId>
 <artifactId>jstick-api</artifactId>
 <version>1.7</version>
@@ -40,23 +41,10 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 		sends initialize
 	}
 	
-	required port to_T2 {
-		sends initialize
-	}
-	required port to_T3 {
-		sends initialize
-	}
-	
 	required port to_onoff1 {
 		sends initialize
 	}
 	
-	required port to_onoff2 {
-		sends initialize
-	}
-	required port to_onoff3 {
-		sends initialize
-	}
 	
 	required port to_dl {
 		sends initialize
@@ -65,10 +53,6 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	required port to_mg1 {
 		sends initialize
 	}
-required port to_mg2 {
-		sends initialize
-	}
-
 
 
 	required port to_gdg {
@@ -267,7 +251,6 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 					last_thermo = last_thermo+1
 					timer!timer_start(poll_intrvl)
 				end
-				println("added default thermo")
 			end
 			
 			
@@ -373,7 +356,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 							`int x= `&ts&`.sendCmd(dident,"ON");`
 							status = `x`
 							// ``&status& `=` ``&ts&`.sendCmd(``` &did& `, "ON" );`  TODO does not compile,yet
-							// status =``&ts&`.sendCmd(`& did &`, "ON" )`
+							// status =``&ts&`.sendCmd(`& did &`, "ON" )
 						end
 						// TODO We need an error outcome if it is the wrong type as well
 					end
