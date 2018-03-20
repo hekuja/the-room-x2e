@@ -347,7 +347,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 					i=i+1
 				end
 				
-				if (found) do
+				if (found and (poweron[i-1]==false)) do
 					d= ``&ts&`.getDevice(`&did&`)`
 					if ((not (d==`null`))) do
 						mth =``&d&`.getMethods()`
@@ -360,11 +360,9 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 						end
 						// TODO We need an error outcome if it is the wrong type as well
 					end
-					else do
-						poweron[i-1]=true // ON by SIMULATION
-						show_val!SwitchOn(did)
+					poweron[i-1]=true // ON by SIMULATION
+					show_val!SwitchOn(did)
 						// TODO remove when tested print("SIMULATION: Power ON on device #") print(did) print("\n")
-					end
 				end
 				
 			end
@@ -380,7 +378,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 					end
 					i=i+1
 				end
-				if (found) do
+				if (found and (poweron[i-1]==true)) do
 					d= ``&ts&`.getDevice(`&did&`)`
 					if (not (d==`null`)) do
 						mth =``&d&`.getMethods()`
@@ -392,11 +390,9 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 						end
 						// TODO We need an error outcome if it is the wrong type as well
 					end
-					else do 
-						poweron[i-1]=false // OFF by SIMULATION
-						show_val!SwitchOff(did)
+					poweron[i-1]=false // OFF by SIMULATION
+					show_val!SwitchOff(did)
 						// TODO remove when tested print("SIMULATION: Power OFF on device #") print(did) print("\n")
-					end
 				end
 			end
 			
